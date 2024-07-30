@@ -1,4 +1,4 @@
-# vacancy
+# @wiser/vacancy
 
 Generated with `npm init nodets@0.0.0`.
 

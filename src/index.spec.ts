@@ -1,3 +1,3 @@
-describe('Client API', () => {
+describe('@wiser/vacancy', () => {
   it('should...');
 });

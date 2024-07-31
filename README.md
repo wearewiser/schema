@@ -1,4 +1,4 @@
-# @wiser/vacancy
+# @wiser/schema
 
 Generated with `npm init nodets@0.0.0`.
 
@@ -8,7 +8,7 @@ Generated with `npm init nodets@0.0.0`.
 Builds the script and runs it. Watches the project directory for changes, and reruns the script when file changes are detected.
 
 ### npm run build
-Builds the project and outputs it to the `./dist/` directory. Bundled with webpack and outputs a single executable.
+Builds the project and outputs it to the `./lib/` directory.
 
 ### npm run lint
 Runs the linter.

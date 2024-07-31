@@ -1,7 +1,14 @@
 {
   "name": "@wiser/schema",
   "version": "0.0.0",
-  "description": "",
+  "description": "The public models used by Wiser for the integration of ATS job information into public job websites.",
+  "homepage": "https://wearewiser.github.io/schema",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wearewiser/schema",
+    "directory": "library"
+  },
+  "author": "John A. Fedoruk <johnny@johnfedoruk.com>",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "scripts": {

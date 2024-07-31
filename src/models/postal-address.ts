@@ -6,29 +6,35 @@ export interface PostalAddress {
    * The street address.
    * @example "123 Main St"
    */
-  street_address: string;
+  street_address?: string;
 
   /**
    * The locality (city or town).
    * @example "Tech City"
    */
-  address_locality: string;
+  city?: string;
 
   /**
    * The region (state or province).
    * @example "TX"
    */
-  address_region: string;
+  region?: string;
 
   /**
    * The postal code.
    * @example "12345"
    */
-  postal_code: string;
+  postal_code?: string;
 
   /**
    * The country.
    * @example "USA"
    */
-  address_country: string;
+  country?: string;
+
+  /**
+   * The country.
+   * @example "USA"
+   */
+  country_code?: string;
 }

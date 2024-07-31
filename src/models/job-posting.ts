@@ -38,34 +38,22 @@ export interface JobPosting {
   job_location: Place;
 
   /**
-   * The monetary amount offered for the job, can be a salary range or hourly rate.
-   * @example { currency: "USD", value: "50,000 - 70,000" }
-   */
-  salary: MonetaryAmount;
-
-  /**
-   * The type of employment (e.g., full-time, part-time, contract).
-   * @example "Full-time"
-   */
-  employment_type: string;
-
-  /**
    * The URL to apply for the job.
    * @example "https://techcorp.com/careers/apply"
    */
   application_url: string;
 
   /**
-   * The date when the job posting was published.
-   * @example "2024-08-01T00:00:00Z"
+   * The monetary amount offered for the job, can be a salary range or hourly rate.
+   * @example { currency: "USD", value: "50,000 - 70,000" }
    */
-  date_posted: string;
+  salary?: MonetaryAmount;
 
   /**
-   * The date when the job posting will expire.
-   * @example "2024-09-01T00:00:00Z"
+   * The type of employment (e.g., full-time, part-time, contract).
+   * @example "Full-time"
    */
-  valid_through: string;
+  employment_type?: string;
 
   /**
    * Educational qualifications required for the job.
@@ -102,12 +90,6 @@ export interface JobPosting {
    * @example { name: "Jane Doe", email: "jane.doe@techcorp.com" }
    */
   application_contact?: ContactPoint;
-
-  /**
-   * Indicates if the job can be directly applied to.
-   * @example true
-   */
-  direct_apply?: boolean;
 
   /**
    * Requirements related to eligibility to work in the job's country.
@@ -158,12 +140,6 @@ export interface JobPosting {
   physical_requirement?: string;
 
   /**
-   * The start date for the job.
-   * @example "2024-09-15T00:00:00Z"
-   */
-  job_start_date?: string;
-
-  /**
    * Responsibilities associated with the job.
    * @example "Develop and maintain web applications."
    */
@@ -174,5 +150,17 @@ export interface JobPosting {
    * @example "JavaScript, HTML, CSS"
    */
   skills?: string;
+
+  /**
+   * The start date for the job.
+   * @example "2024-09-15T00:00:00Z"
+   */
+  job_start_date?: string;
+
+  /**
+   * The date when the job posting was published.
+   * @example "2024-08-01T00:00:00Z"
+   */
+  date_posted: string;
 
 }

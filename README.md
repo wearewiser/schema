@@ -6,7 +6,7 @@ The public models used by Wiser for the integration of ATS job information into 
 
 ## Usage
 
-Install these models by running the following in your TypeScript project
+Install these models from [@wiser/schema](https://www.npmjs.com/package/@wiser/schema) by running the following in your TypeScript project
 
 ```bash
 $ npm install --save-dev @wiser/schema

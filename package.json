@@ -1,6 +1,6 @@
 {
   "name": "@wiser/schema",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "The public models used by Wiser for the integration of ATS job information into public job websites.",
   "homepage": "https://wearewiser.github.io/schema",
   "repository": {

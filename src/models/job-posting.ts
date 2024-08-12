@@ -14,6 +14,12 @@ export interface JobPosting {
   job_req_id: string;
 
   /**
+   * An ID for the job requistion's specific instance when multiple jobs exist.
+   * @example "JR0001-01"
+   */
+  instance_id?: string;
+
+  /**
    * A title for the job vacancy.
    * @example "Software Engineer"
    */

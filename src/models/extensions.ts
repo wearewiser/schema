@@ -17,7 +17,7 @@ export interface Extensions {
      * The team or sub-department within `employment_unit`.
      * @example "Frontend"
      */
-    employment_subunit?: string;
+    employment_subunit?: string | undefined;
   };
 
   /**
@@ -28,7 +28,7 @@ export interface Extensions {
      * Permanent, fixed term, intern and so on.
      * @example "Fixed Term"
      */
-    contract_type?: string;
+    contract_type?: string | undefined;
   };
 
   /**
@@ -39,7 +39,7 @@ export interface Extensions {
      * The date the contract ends.
      * @example "2025-03-31"
      */
-    contract_end?: string;
+    contract_end?: string | undefined;
   };
 
   /**
@@ -50,7 +50,7 @@ export interface Extensions {
      * The date the posting was last updated.
      * @example "2024-08-15T09:30:00Z"
      */
-    date_updated?: string;
+    date_updated?: string | undefined;
   };
 
   /**
@@ -61,7 +61,7 @@ export interface Extensions {
      * The posting id.
      * @example "744000012345678"
      */
-    posting_id?: string;
+    posting_id?: string | undefined;
   };
 
   /**
@@ -72,7 +72,7 @@ export interface Extensions {
      * The posting uuid.
      * @example "3f1c2b8e-6d1a-4c5e-9f0a-1b2c3d4e5f60"
      */
-    posting_uuid?: string;
+    posting_uuid?: string | undefined;
   };
 
   /**
@@ -83,7 +83,7 @@ export interface Extensions {
      * The office the job reports to.
      * @example { address: { city: "Atlanta", region: "GA", country: "United States" } }
      */
-    office_location?: Place;
+    office_location?: Place | undefined;
   };
 
   /**
@@ -164,12 +164,12 @@ export interface Extensions {
      * The code part of the job profile.
      * @example "40012"
      */
-    job_profile_code?: string;
+    job_profile_code?: string | undefined;
     /**
      * The name part of the job profile.
      * @example "Clinical Research Associate"
      */
-    job_profile_name?: string;
+    job_profile_name?: string | undefined;
   };
 
   /**
@@ -180,12 +180,12 @@ export interface Extensions {
      * The source job family.
      * @example "Clinical Operations"
      */
-    raw_job_family?: string;
+    raw_job_family?: string | undefined;
     /**
      * The source job sub-family.
      * @example "Clinical Monitoring"
      */
-    raw_job_sub_family?: string;
+    raw_job_sub_family?: string | undefined;
   };
 
   /**

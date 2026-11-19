@@ -29,6 +29,7 @@
     "noUnusedParameters": true, /* Report errors on unused parameters. */
     "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
     "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
+    "exactOptionalPropertyTypes": true, /* Optional properties must say whether they accept undefined. Checks the models against Zod's output. */
     /* Module Resolution Options */
     "moduleResolution": "nodenext", /* Specify module resolution strategy. */
     // "baseUrl": "./",                       /* Base directory to resolve non-absolute module names. */

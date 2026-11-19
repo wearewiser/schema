@@ -5,6 +5,7 @@ on:
     branches: [master]
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -13,8 +14,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: npm ci
@@ -22,7 +23,7 @@ jobs:
       - run: sed -i 's/^\#\ .*//g' README.md
       - run: npm run docs
       # https://github.com/actions/upload-pages-artifact
-      - uses: actions/upload-pages-artifact@v2
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: ./docs  # This should be your TypeDoc "out" path.
   deploy:
@@ -35,4 +36,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         # https://github.com/actions/deploy-pages
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v5

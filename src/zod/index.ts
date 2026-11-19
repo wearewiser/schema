@@ -133,12 +133,22 @@ export const EXTENSION_KEYS = Object.keys(extensionSchemas) as readonly Extensio
 type SingleKey<K, All = K> = K extends unknown ? ([All] extends [K] ? K : never) : never;
 
 /**
- * The keys that are certainly in T: the elements of a tuple that are a single key.
- * A list whose length is not known at compile time has no certain keys.
+ * The keys that are certainly in the list T: the elements of a tuple that are a
+ * single key. A list whose length is not known at compile time has no certain keys.
  */
-type CertainKeys<T extends readonly ExtensionKey[]> = number extends T["length"]
+type CertainKeysOf<T extends readonly ExtensionKey[]> = number extends T["length"]
   ? never
   : { [I in keyof T]: SingleKey<T[I]> }[number];
+
+/**
+ * The keys that are certain in every alternative when T is a union of lists,
+ * such as `readonly ["unlisted"] | readonly []`.
+ */
+type CertainKeys<T extends readonly ExtensionKey[]> = {
+  [K in ExtensionKey]: (T extends unknown ? (K extends CertainKeysOf<T> ? true : false) : never) extends true
+    ? K
+    : never;
+}[ExtensionKey];
 
 /**
  * The output of {@link jobPostingSchema} for the keys T. Fields of an extension

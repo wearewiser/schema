@@ -146,6 +146,60 @@ describe('@wiser/schema/zod', () => {
         assertType<Equals<typeof row.location_keys, string[] | undefined>>();
         expect(row).to.deep.equal({ ...minimal, unlisted: false });
       });
+
+      it('makes the fields of an extension in only some lists of a union optional', () => {
+        const keys = JSON.parse('false') ? (['unlisted'] as const) : ([] as const);
+        const row = jobPostingSchema(keys).parse(minimal);
+        assertType<Equals<typeof row.unlisted, boolean | undefined>>();
+        expect(row).to.deep.equal(minimal);
+      });
+
+      it('keeps the fields of an extension in every list of a union required', () => {
+        const keys = JSON.parse('false')
+          ? (['unlisted', 'locationKeys'] as const)
+          : (['locationKeys'] as const);
+        const row = jobPostingSchema(keys).parse({ ...minimal, location_keys: [] });
+        assertType<Equals<typeof row.location_keys, string[]>>();
+        assertType<Equals<typeof row.unlisted, boolean | undefined>>();
+        expect(row).to.deep.equal({ ...minimal, location_keys: [] });
+      });
+    });
+
+    describe('with an optional field given as undefined', () => {
+      // Zod keeps the key, so the models declare optional fields as `T | undefined`.
+      // tsconfig.json sets exactOptionalPropertyTypes, so these checks hold under it.
+      it('keeps the key and types its value as possibly undefined', () => {
+        const parsed = jobPostingSchema().parse({ ...minimal, work_hours: undefined });
+        expect('work_hours' in parsed).to.equal(true);
+        if ('work_hours' in parsed) {
+          assertType<Equals<typeof parsed.work_hours, string | undefined>>();
+          expect(parsed.work_hours).to.equal(undefined);
+        }
+        const asInterface: BaseJobPosting = parsed;
+        expect(asInterface).to.deep.equal({ ...minimal, work_hours: undefined });
+        // Spreading over defaults overwrites them with undefined, and the type says so.
+        const withDefaults = { ...{ work_hours: '37.5' }, ...parsed };
+        assertType<Equals<typeof withDefaults.work_hours, string | undefined>>();
+        expect(withDefaults.work_hours).to.equal(undefined);
+      });
+
+      it('does the same for nested and extension fields', () => {
+        const parsed = jobPostingSchema(['postingId', 'officeLocation']).parse({
+          ...minimal,
+          job_location: { address: { city: undefined } },
+          posting_id: undefined,
+          office_location: undefined,
+        });
+        expect(['city' in parsed.job_location.address, 'posting_id' in parsed, 'office_location' in parsed])
+          .to.deep.equal([true, true, true]);
+        if ('posting_id' in parsed && 'office_location' in parsed && 'city' in parsed.job_location.address) {
+          assertType<Equals<typeof parsed.posting_id, string | undefined>>();
+          assertType<Equals<typeof parsed.office_location, Place | undefined>>();
+          assertType<Equals<typeof parsed.job_location.address.city, string | undefined>>();
+        }
+        const asInterface: JobPosting<'postingId' | 'officeLocation'> = parsed;
+        expect(asInterface.posting_id).to.equal(undefined);
+      });
     });
 
     it('accepts the same extension twice', () => {

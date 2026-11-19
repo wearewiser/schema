@@ -56,8 +56,8 @@ A key that is not in `Extensions`, or a field from an extension that was not cho
 
 #### Adding a field
 
-1. If schema.org [JobPosting](https://schema.org/JobPosting) has the property, add it to `BaseJobPosting` as an optional field under the schema.org name in snake_case.
-2. Otherwise, add an entry to `Extensions` in `src/models/extensions.ts`, with TSDoc, and a matching schema to `extensionSchemas` in `src/zod/index.ts`. The build fails until both exist and agree.
+1. If schema.org [JobPosting](https://schema.org/JobPosting) has the property, add it to `BaseJobPosting` as an optional field under the schema.org name in snake_case. Declare optional fields as `name?: T | undefined`, because Zod keeps a key that is given as `undefined`.
+2. Otherwise, add an entry to `Extensions` in `src/models/extensions.ts`, with TSDoc, and a matching schema to `extensionSchemas` in `src/zod/index.ts`. The build fails if the extension has no schema or the schema's output does not fit the type. `npm test` runs `npm run typecheck` first, which fails unless each schema's inferred type exactly equals its type, with `exactOptionalPropertyTypes` on.
 3. A field must not reuse the name of a base field or another extension's field. `jobPostingSchema` throws if it does.
 
 ### Validation with Zod

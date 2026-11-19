@@ -21,7 +21,7 @@ export interface BaseJobPosting {
    * An ID for the job requistion's specific instance when multiple jobs exist.
    * @example "JR0001-01"
    */
-  instance_id?: string;
+  instance_id?: string | undefined;
 
   /**
    * A title for the job vacancy.
@@ -52,7 +52,7 @@ export interface BaseJobPosting {
    * Free text for now. schema.org `jobLocationType`.
    * @example "Hybrid"
    */
-  job_location_type?: string;
+  job_location_type?: string | undefined;
 
   /**
    * The URL to apply for the job.
@@ -64,128 +64,128 @@ export interface BaseJobPosting {
    * The URL of the posting's page on the careers site. schema.org `url`.
    * @example "https://techcorp.com/careers/jobs/JR0001"
    */
-  url?: string;
+  url?: string | undefined;
 
   /**
    * The monetary amount offered for the job, can be a salary range or hourly rate.
    * @example { currency: "USD", value: "50,000 - 70,000" }
    */
-  salary?: MonetaryAmount;
+  salary?: MonetaryAmount | undefined;
 
   /**
    * The type of employment (e.g., full-time, part-time, contract).
    * @example "Full-time"
    */
-  employment_type?: string;
+  employment_type?: string | undefined;
 
   /**
    * The typical working hours for the job. schema.org `workHours`.
    * @example "37.5"
    */
-  work_hours?: string;
+  work_hours?: string | undefined;
 
   /**
    * Educational qualifications required for the job.
    * @example "Bachelor's degree in Computer Science or related field"
    */
-  education_requirements?: string;
+  education_requirements?: string | undefined;
 
   /**
    * Experience requirements for the job.
    * @example "2+ years of experience in software development"
    */
-  experience_requirements?: string;
+  experience_requirements?: string | undefined;
 
   /**
    * Special qualifications or skills required for the job.
    * @example "Proficiency in JavaScript, experience with React"
    */
-  qualifications?: string;
+  qualifications?: string | undefined;
 
   /**
    * Any additional benefits offered with the job.
    * @example "Health insurance, 401(k), paid time off"
    * @deprecated Use `job_benefits`, which replaced `benefits` in schema.org.
    */
-  benefits?: string;
+  benefits?: string | undefined;
 
   /**
    * The location requirements for the applicant.
    * @example "Applicants must reside in the United States."
    */
-  applicant_location_requirements?: string;
+  applicant_location_requirements?: string | undefined;
 
   /**
    * Contact information for the application process.
    * @example { name: "Jane Doe", email: "jane.doe@techcorp.com" }
    */
-  application_contact?: ContactPoint;
+  application_contact?: ContactPoint | undefined;
 
   /**
    * Requirements related to eligibility to work in the job's country.
    * @example "Must be authorized to work in the United States."
    */
-  eligibility_to_work_requirement?: string;
+  eligibility_to_work_requirement?: string | undefined;
 
   /**
    * Overview or description of the employer.
    * @example "Tech Corp is a leading software company..."
    */
-  employer_overview?: string;
+  employer_overview?: string | undefined;
 
   /**
    * The organizational unit or department offering the job.
    * @example "Software Development"
    */
-  employment_unit?: string;
+  employment_unit?: string | undefined;
 
   /**
    * The estimated salary range for the job.
    * @example { currency: "USD", value: "55,000 - 75,000" }
    */
-  estimated_salary?: MonetaryAmount;
+  estimated_salary?: MonetaryAmount | undefined;
 
   /**
    * Compensation beyond base salary, such as bonuses or incentives.
    * @example "Annual bonus based on performance."
    */
-  incentive_compensation?: string;
+  incentive_compensation?: string | undefined;
 
   /**
    * The industry associated with the job.
    * @example "Information Technology"
    */
-  industry?: string;
+  industry?: string | undefined;
 
   /**
    * The specific job benefits offered.
    * @example "Health insurance, retirement plan"
    */
-  job_benefits?: string;
+  job_benefits?: string | undefined;
 
   /**
    * Physical requirements for the job.
    * @example "Must be able to lift 50 pounds."
    */
-  physical_requirement?: string;
+  physical_requirement?: string | undefined;
 
   /**
    * Responsibilities associated with the job.
    * @example "Develop and maintain web applications."
    */
-  responsibilities?: string;
+  responsibilities?: string | undefined;
 
   /**
    * Skills required for the job.
    * @example "JavaScript, HTML, CSS"
    */
-  skills?: string;
+  skills?: string | undefined;
 
   /**
    * The start date for the job.
    * @example "2024-09-15T00:00:00Z"
    */
-  job_start_date?: string;
+  job_start_date?: string | undefined;
 
   /**
    * The date when the job posting was published.
@@ -197,7 +197,7 @@ export interface BaseJobPosting {
    * The date after which the posting is no longer valid. schema.org `validThrough`.
    * @example "2024-09-01T00:00:00Z"
    */
-  valid_through?: string;
+  valid_through?: string | undefined;
 }
 
 /**

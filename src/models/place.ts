@@ -14,5 +14,5 @@ export interface Place {
    * Additional details about the place (optional).
    * @example "Office Building"
    */
-  additional_info?: string;
+  additional_info?: string | undefined;
 }

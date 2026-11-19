@@ -113,4 +113,4 @@ Builds the project and outputs it to the `./dist/` directory. Compiled with Type
 Cleans the project directory of all compilation artifacts.
 
 ### npm run docs
-Generates the TSDocs for the current project.
+Generates the TSDocs for the current project. It first applies `patches/typedoc+0.28.20.patch` with patch-package. The repo overrides minimatch to 11 for a security fix, and TypeDoc 0.28.20 calls `matchOne()`, which minimatch 11 removed. The patch is the fix from [TypeStrong/typedoc#3151](https://github.com/TypeStrong/typedoc/pull/3151); remove it, and patch-package, once a TypeDoc release includes that fix.

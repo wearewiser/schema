@@ -33,8 +33,8 @@ export interface PostalAddress {
   country?: string;
 
   /**
-   * The country.
-   * @example "USA"
+   * The country code.
+   * @example "US"
    */
   country_code?: string;
 }

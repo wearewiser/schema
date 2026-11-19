@@ -22,10 +22,65 @@ import { JobPosting } from '@wiser/schema';
 const vacancies: JobPosting[] = await fetchVacancies();
 ```
 
+### Extensions
+
+`JobPosting` with no type argument is the base type, [BaseJobPosting](https://wearewiser.github.io/schema/interfaces/BaseJobPosting.html). A tenant that needs more fields chooses them by key from the [Extensions](https://wearewiser.github.io/schema/interfaces/Extensions.html) allow list:
+
+```typescript
+import { JobPosting } from '@wiser/schema';
+
+type Vacancy = JobPosting<'employmentSubunit' | 'postingId'>;
+```
+
+A key that is not in `Extensions`, or a field from an extension that was not chosen, fails to compile.
+
+| Key | Fields |
+| - | - |
+| `employmentSubunit` | `employment_subunit?: string` |
+| `contractType` | `contract_type?: string` |
+| `contractEnd` | `contract_end?: string` |
+| `dateUpdated` | `date_updated?: string` |
+| `postingId` | `posting_id?: string` |
+| `postingUuid` | `posting_uuid?: string` |
+| `officeLocation` | `office_location?: Place` |
+| `locationKeys` | `location_keys: string[]` |
+| `searchKeys` | `search_keys: string[]` |
+| `unlisted` | `unlisted: boolean` |
+| `descriptionSections` | `job_description_corporate: string`, `job_description_organization: string`, `job_description_short: string` |
+| `companyName` | `company_name: string` |
+| `jobProfile` | `job_profile: string`, `job_profile_code?: string`, `job_profile_name?: string` |
+| `rawJobFamily` | `raw_job_family?: string`, `raw_job_sub_family?: string` |
+| `localeUrls` | `application_url_es`, `application_url_ja`, `application_url_de`, `application_url_cn`, `application_url_fr` (all `string \| null`) |
+| `businessFilterUrl` | `business_filter_url: string \| null` |
+| `linkedinUrl` | `linkedin_job_description_url: string` |
+
+#### Adding a field
+
+1. If schema.org [JobPosting](https://schema.org/JobPosting) has the property, add it to `BaseJobPosting` as an optional field under the schema.org name in snake_case.
+2. Otherwise, add an entry to `Extensions` in `src/models/extensions.ts`, with TSDoc, and a matching schema to `extensionSchemas` in `src/zod/index.ts`. The build fails until both exist and agree.
+3. A field must not reuse the name of a base field or another extension's field. `jobPostingSchema` throws if it does.
+
+### Validation with Zod
+
+Zod schemas are published from `@wiser/schema/zod`. They need Zod 4 in your project. The root export, `@wiser/schema`, is types only and does not load Zod.
+
+```typescript
+import { jobPostingSchema } from '@wiser/schema/zod';
+
+const schema = jobPostingSchema(['employmentSubunit', 'postingId']);
+const vacancy = schema.parse(row); // JobPosting<'employmentSubunit' | 'postingId'>
+```
+
+- `jobPostingSchema(keys)` builds the schema for the base type plus the chosen extensions. Fields outside those are stripped from the row.
+- `BaseJobPostingSchema`, `extensionSchemas`, `EXTENSION_KEYS` and the model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema` and `MonetaryAmountSchema`) are also exported.
+- The schemas mirror the types exactly: strings have no minimum length and no date or URL format.
+
 ## Models
 
 - [ContactPoint](https://wearewiser.github.io/schema/interfaces/ContactPoint.html) - Represents contact information for a person or organization.
-- [JobPosting](https://wearewiser.github.io/schema/interfaces/JobPosting.html) - Represents a job vacancy or opportunity offered by an organization.
+- [BaseJobPosting](https://wearewiser.github.io/schema/interfaces/BaseJobPosting.html) - The fields of a job posting that every tenant may use.
+- [Extensions](https://wearewiser.github.io/schema/interfaces/Extensions.html) - The allow list of fields a tenant may add to `BaseJobPosting`.
+- [JobPosting](https://wearewiser.github.io/schema/types/JobPosting.html) - Represents a job vacancy or opportunity offered by an organization, with the chosen extensions.
 - [MonetaryAmount](https://wearewiser.github.io/schema/interfaces/MonetaryAmount.html) - Represents a monetary amount, including currency and value information.
 - [Organization](https://wearewiser.github.io/schema/interfaces/Organization.html) - Represents an organization or company offering a job or other services.
 - [Place](https://wearewiser.github.io/schema/interfaces/Place.html) - Represents a physical location, typically where a job is based or an event occurs.

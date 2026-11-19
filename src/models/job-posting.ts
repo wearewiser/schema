@@ -1,12 +1,16 @@
 import { ContactPoint } from "./contact-point";
+import { ExtensionKey, Extensions } from "./extensions";
 import { MonetaryAmount } from "./monetary-amount";
 import { Organization } from "./organization";
 import { Place } from "./place";
 
 /**
  * Represents a job vacancy or opportunity offered by an organization.
+ *
+ * These are the fields every tenant may use. Fields that only some tenants need are
+ * listed in {@link Extensions} and added with {@link JobPosting}.
  */
-export interface JobPosting {
+export interface BaseJobPosting {
   /**
    * An ID for the job requistion.
    * @example "JR0001"
@@ -39,15 +43,28 @@ export interface JobPosting {
 
   /**
    * The location where the job is available.
-   * @example { address: { street_address: "123 Main St", address_locality: "Tech City", address_region: "TX", postal_code: "12345", address_country: "USA" } }
+   * @example { address: { street_address: "123 Main St", city: "Tech City", region: "TX", postal_code: "12345", country: "USA" } }
    */
   job_location: Place;
+
+  /**
+   * Whether the job is remote, hybrid or office-based, as the tenant's ATS words it.
+   * Free text for now. schema.org `jobLocationType`.
+   * @example "Hybrid"
+   */
+  job_location_type?: string;
 
   /**
    * The URL to apply for the job.
    * @example "https://techcorp.com/careers/apply"
    */
   application_url: string;
+
+  /**
+   * The URL of the posting's page on the careers site. schema.org `url`.
+   * @example "https://techcorp.com/careers/jobs/JR0001"
+   */
+  url?: string;
 
   /**
    * The monetary amount offered for the job, can be a salary range or hourly rate.
@@ -60,6 +77,12 @@ export interface JobPosting {
    * @example "Full-time"
    */
   employment_type?: string;
+
+  /**
+   * The typical working hours for the job. schema.org `workHours`.
+   * @example "37.5"
+   */
+  work_hours?: string;
 
   /**
    * Educational qualifications required for the job.
@@ -82,6 +105,7 @@ export interface JobPosting {
   /**
    * Any additional benefits offered with the job.
    * @example "Health insurance, 401(k), paid time off"
+   * @deprecated Use `job_benefits`, which replaced `benefits` in schema.org.
    */
   benefits?: string;
 
@@ -169,4 +193,31 @@ export interface JobPosting {
    */
   date_posted: string;
 
+  /**
+   * The date after which the posting is no longer valid. schema.org `validThrough`.
+   * @example "2024-09-01T00:00:00Z"
+   */
+  valid_through?: string;
 }
+
+/**
+ * Turns a union of object types into the intersection of those types.
+ */
+type UnionToIntersection<U> =
+  (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+
+/**
+ * Represents a job vacancy or opportunity offered by an organization, with the
+ * fields of the chosen {@link Extensions}.
+ *
+ * With no argument it is exactly {@link BaseJobPosting}. A key that is not in
+ * {@link Extensions} does not compile.
+ *
+ * @typeParam K - The keys of the extensions the tenant uses.
+ * @example
+ * ```ts
+ * type Vacancy = JobPosting<"employmentSubunit" | "postingId">;
+ * ```
+ */
+export type JobPosting<K extends ExtensionKey = never> =
+  [K] extends [never] ? BaseJobPosting : BaseJobPosting & UnionToIntersection<Extensions[K]>;

@@ -88,9 +88,6 @@ const vacancy = schema.parse(row); // JobPosting<'employmentSubunit' | 'postingI
 
 ## Development Scripts
 
-### npm start
-Builds the script and runs it. Watches the project directory for changes, and reruns the script when file changes are detected.
-
 ### npm run build
 Builds the project and outputs it to the `./lib/` directory.
 

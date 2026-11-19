@@ -1,8 +1,8 @@
 import { expect } from 'chai';
 import { BaseJobPosting, JobPosting, Place } from '.';
 
-// These tests are checked by the compiler. A `@ts-expect-error` that no longer
-// finds an error fails the build and the test run.
+// These tests are checked by the compiler. `npm test` runs `npm run typecheck`
+// first, so a `@ts-expect-error` that no longer finds an error fails the test run.
 
 type Equals<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;

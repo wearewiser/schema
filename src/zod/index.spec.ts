@@ -23,8 +23,9 @@ import {
   PostalAddressSchema,
 } from '.';
 
-// Compile-time check that each schema's inferred type equals its interface.
-// The interfaces are the source of truth; a mismatch fails the build.
+// Compile-time checks. `npm test` runs `npm run typecheck` first, so a mismatch
+// or a `@ts-expect-error` that no longer finds an error fails the test run.
+// The interfaces are the source of truth for each schema's inferred type.
 type Equals<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 function assertType<T extends true>(): T | undefined {
@@ -40,7 +41,14 @@ assertType<
   { [K in ExtensionKey]: Equals<z.infer<(typeof extensionSchemas)[K]>, Extensions[K]> }[ExtensionKey]
 >();
 assertType<Equals<(typeof EXTENSION_KEYS)[number], ExtensionKey>>();
-assertType<Equals<z.infer<ReturnType<typeof jobPostingSchema<'postingId'>>>, JobPosting<'postingId'>>>();
+
+// jobPostingSchema's output type must not claim extension fields that may be absent.
+const literalSchema = jobPostingSchema(['postingId', 'unlisted']);
+assertType<Equals<z.infer<typeof literalSchema>, JobPosting<'postingId' | 'unlisted'>>>();
+const omittedSchema = jobPostingSchema();
+assertType<Equals<z.infer<typeof omittedSchema>, BaseJobPosting>>();
+const emptySchema = jobPostingSchema([]);
+assertType<Equals<z.infer<typeof emptySchema>, BaseJobPosting>>();
 
 const minimal: BaseJobPosting = {
   job_req_id: '',
@@ -108,12 +116,51 @@ describe('@wiser/schema/zod', () => {
       expect(() => jobPostingSchema(EXTENSION_KEYS)).not.to.throw();
     });
 
+    describe('with keys only known at runtime', () => {
+      it('makes the fields of a list built at runtime optional', () => {
+        const keys: ExtensionKey[] = JSON.parse('[]');
+        const row = jobPostingSchema(keys).parse(minimal);
+        assertType<Equals<typeof row.unlisted, boolean | undefined>>();
+        assertType<Equals<typeof row.location_keys, string[] | undefined>>();
+        expect(row).to.deep.equal(minimal);
+      });
+
+      it('types the fields of EXTENSION_KEYS as optional and still checks them at runtime', () => {
+        const schema = jobPostingSchema(EXTENSION_KEYS);
+        assertType<Equals<z.infer<typeof schema>['company_name'], string | undefined>>();
+        expect(schema.safeParse(minimal).success).to.equal(false);
+      });
+
+      it('makes the fields of a tuple element that is a union optional', () => {
+        const key = JSON.parse('"postingId"') as 'postingId' | 'unlisted';
+        const row = jobPostingSchema([key]).parse({ ...minimal, posting_id: 'P1' });
+        assertType<Equals<typeof row.unlisted, boolean | undefined>>();
+        expect(row).to.deep.equal({ ...minimal, posting_id: 'P1' });
+      });
+
+      it('keeps the fields of the literal keys beside them required', () => {
+        const key = JSON.parse('"postingId"') as ExtensionKey;
+        const row = jobPostingSchema(['unlisted', key]).parse({ ...minimal, unlisted: false });
+        assertType<Equals<typeof row.unlisted, boolean>>();
+        assertType<Equals<typeof row.job_req_id, string>>();
+        assertType<Equals<typeof row.location_keys, string[] | undefined>>();
+        expect(row).to.deep.equal({ ...minimal, unlisted: false });
+      });
+    });
+
     it('accepts the same extension twice', () => {
       expect(() => jobPostingSchema(['postingId', 'postingId'])).not.to.throw();
     });
 
     it('throws on a key that is not in Extensions', () => {
-      expect(() => jobPostingSchema(['nope' as ExtensionKey])).to.throw('Unknown JobPosting extension "nope"');
+      // @ts-expect-error "nope" is not in Extensions.
+      expect(() => jobPostingSchema(['nope'])).to.throw('Unknown JobPosting extension "nope"');
+    });
+
+    it('does not take a type argument without keys', () => {
+      // @ts-expect-error The type argument would claim fields the schema does not have.
+      const schema = jobPostingSchema<readonly ['unlisted']>();
+      expect(schema.parse(minimal)).to.deep.equal(minimal);
     });
 
     describe('with an extension that collides', () => {

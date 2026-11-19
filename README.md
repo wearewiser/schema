@@ -62,7 +62,7 @@ A key that is not in `Extensions`, or a field from an extension that was not cho
 
 ### Validation with Zod
 
-Zod schemas are published from `@wiser/schema/zod`. They need Zod 4 in your project. The root export, `@wiser/schema`, is types only and does not load Zod.
+Zod schemas are published from `@wiser/schema/zod`, built on Zod 4, which is a dependency of this package. Your project can stay on Zod 3: npm installs Zod 4 alongside it for this package. The root export, `@wiser/schema`, is types only and does not load Zod.
 
 ```typescript
 import { jobPostingSchema } from '@wiser/schema/zod';
@@ -71,7 +71,7 @@ const schema = jobPostingSchema(['employmentSubunit', 'postingId']);
 const vacancy = schema.parse(row); // JobPosting<'employmentSubunit' | 'postingId'>
 ```
 
-- `jobPostingSchema(keys)` builds the schema for the base type plus the chosen extensions. Fields outside those are stripped from the row.
+- `jobPostingSchema(keys)` builds the schema for the base type plus the chosen extensions. Fields outside those are stripped from the row. With a literal list of keys the output type is exactly `JobPosting<K>`. With a list built at runtime, such as keys read from config, the extension fields are typed as optional, because the type cannot know which were chosen.
 - `BaseJobPostingSchema`, `extensionSchemas`, `EXTENSION_KEYS` and the model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema` and `MonetaryAmountSchema`) are also exported.
 - The schemas mirror the types exactly: strings have no minimum length and no date or URL format.
 

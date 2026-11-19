@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ExtensionKey, Extensions, JobPosting } from "../models";
+import type { BaseJobPosting, ExtensionKey, Extensions, JobPosting } from "../models";
 
 /**
  * Validates a {@link ContactPoint}.
@@ -128,8 +128,35 @@ export const extensionSchemas = {
 export const EXTENSION_KEYS = Object.keys(extensionSchemas) as readonly ExtensionKey[];
 
 /**
+ * K when it is a single key, otherwise never.
+ */
+type SingleKey<K, All = K> = K extends unknown ? ([All] extends [K] ? K : never) : never;
+
+/**
+ * The keys that are certainly in T: the elements of a tuple that are a single key.
+ * A list whose length is not known at compile time has no certain keys.
+ */
+type CertainKeys<T extends readonly ExtensionKey[]> = number extends T["length"]
+  ? never
+  : { [I in keyof T]: SingleKey<T[I]> }[number];
+
+/**
+ * The output of {@link jobPostingSchema} for the keys T. Fields of an extension
+ * that is certainly chosen keep their optionality. Fields of an extension that
+ * may or may not be chosen, such as one from a list built at runtime, are optional.
+ */
+type JobPostingSchemaOutput<T extends readonly ExtensionKey[]> =
+  [Exclude<T[number], CertainKeys<T>>] extends [never]
+    ? JobPosting<CertainKeys<T>>
+    : JobPosting<CertainKeys<T>> & Partial<JobPosting<Exclude<T[number], CertainKeys<T>>>>;
+
+/**
  * Builds the schema for a {@link JobPosting} with the chosen extensions.
  * Fields outside the base and the chosen extensions are stripped.
+ *
+ * With a literal list of keys the output is exactly `JobPosting<K>`. With a list
+ * built at runtime, such as `string[]` from config cast to `ExtensionKey[]`, the
+ * fields of every extension that may be in the list are optional.
  *
  * @param extensions - The keys of the extensions the tenant uses.
  * @throws Error if a key is not in {@link Extensions}, or if a chosen extension
@@ -140,9 +167,11 @@ export const EXTENSION_KEYS = Object.keys(extensionSchemas) as readonly Extensio
  * const vacancy = schema.parse(row); // JobPosting<"employmentSubunit" | "postingId">
  * ```
  */
-export function jobPostingSchema<const K extends ExtensionKey = never>(
-  extensions: readonly K[] = [],
-): z.ZodType<JobPosting<K>> {
+export function jobPostingSchema(): z.ZodType<BaseJobPosting>;
+export function jobPostingSchema<const T extends readonly ExtensionKey[]>(
+  extensions: T,
+): z.ZodType<JobPostingSchemaOutput<T>>;
+export function jobPostingSchema(extensions: readonly ExtensionKey[] = []): z.ZodType<BaseJobPosting> {
   const shape: Record<string, z.ZodType> = { ...BaseJobPostingSchema.shape };
   for (const key of new Set<ExtensionKey>(extensions)) {
     if (!Object.prototype.hasOwnProperty.call(extensionSchemas, key)) {
@@ -155,5 +184,5 @@ export function jobPostingSchema<const K extends ExtensionKey = never>(
       shape[field] = schema;
     }
   }
-  return z.object(shape) as unknown as z.ZodType<JobPosting<K>>;
+  return z.object(shape) as unknown as z.ZodType<BaseJobPosting>;
 }

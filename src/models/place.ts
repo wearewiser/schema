@@ -6,7 +6,7 @@ import { PostalAddress } from "./postal-address";
 export interface Place {
   /**
    * The address of the place, using a structured postal address.
-   * @example { street_address: "123 Main St", address_locality: "Tech City", address_region: "TX", postal_code: "12345", address_country: "USA" }
+   * @example { street_address: "123 Main St", city: "Tech City", region: "TX", postal_code: "12345", country: "USA" }
    */
   address: PostalAddress;
 
@@ -14,5 +14,5 @@ export interface Place {
    * Additional details about the place (optional).
    * @example "Office Building"
    */
-  additional_info?: string;
+  additional_info?: string | undefined;
 }

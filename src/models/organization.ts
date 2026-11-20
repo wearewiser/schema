@@ -12,5 +12,5 @@ export interface Organization {
    * The URL of the organization.
    * @example "https://techcorp.com"
    */
-  url?: string;
+  url?: string | undefined;
 }

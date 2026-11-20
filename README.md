@@ -6,13 +6,21 @@ The public models used by Wiser for the integration of ATS job information into 
 
 ## Usage
 
-Install these models from [@wiser/schema](https://www.npmjs.com/package/@wiser/schema) by running the following in your TypeScript project
+Install [@wiser/schema](https://www.npmjs.com/package/@wiser/schema) in your TypeScript project.
+
+If you only import the types from `@wiser/schema`, a development dependency is enough, because the types are erased at build time:
 
 ```bash
 $ npm install --save-dev @wiser/schema
 ```
 
-and import the models into your project
+If you use the runtime validation from `@wiser/schema/zod` (see [Validation with Zod](#validation-with-zod)), install it as a production dependency so it is still present when you deploy with `npm ci --omit=dev`:
+
+```bash
+$ npm install --save-prod @wiser/schema
+```
+
+Then import the models into your project
 
 ```typescript
 import { JobPosting } from '@wiser/schema';

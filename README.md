@@ -14,13 +14,12 @@ If you only import the types from `@wiser/schema`, a development dependency is e
 $ npm install --save-dev @wiser/schema
 ```
 
-The types are generated from the Zod schemas, so their declarations import Zod's. You do not install Zod yourself: it is a dependency of this package, so npm installs it with it. Type checking them needs TypeScript 5.5 or later and, because Zod's declarations default-import CommonJS modules, one of these compiler options:
+The types are generated from the Zod schemas, so even a project that imports only types from `@wiser/schema` type checks Zod's declarations. Zod is a dependency of this package, so npm installs it with it; you do not install it yourself. Type checking needs TypeScript 5.5 or later, and:
 
-- `module` set to `node16` or `nodenext`, or `moduleResolution` set to `bundler`
-- `esModuleInterop` or `allowSyntheticDefaultImports`
-- `skipLibCheck`
+- Default imports of CommonJS modules, which Zod's declarations use. `module` set to `node16` or `nodenext`, `moduleResolution` set to `bundler`, `esModuleInterop` or `allowSyntheticDefaultImports` each allow them. With `module: commonjs` and `moduleResolution: node` and none of these, `tsc` reports TS1259 errors inside `node_modules/zod`.
+- ES2015 library types and a global `URL`. Any `target` works, ES5 included, when `lib` includes ES2015 or later and either the `dom` lib or `@types/node` declares `URL`. The default `lib` for `target: ES5` lacks ES2015.
 
-With none of them, `tsc` reports TS1259 errors inside `node_modules/zod`. A `target` older than ES2015 also needs `skipLibCheck`.
+`skipLibCheck` skips both checks.
 
 If you use the runtime validation from `@wiser/schema/zod` (see [Validation with Zod](#validation-with-zod)), install it as a production dependency so it is still present when you deploy with `npm ci --omit=dev`:
 
@@ -70,6 +69,18 @@ A key that is not in `Extensions`, or a field from an extension that was not cho
 | `businessFilterUrl` | `business_filter_url: string \| null` |
 | `linkedinUrl` | `linkedin_job_description_url: string` |
 
+#### Augmenting the models
+
+The models are interfaces, so declaration merging still adds fields to the interface it names. A nested field is typed by its schema, not by the named interface: `job_location` is the output of `PlaceSchema`, not `Place`. So augmenting `Place` or `PostalAddress` does not change `job_location`, `office_location` or their `address`. Before the types were generated from the schemas, those fields were typed as `Place`, and such an augmentation reached them. To extend a nested field, extend the posting type instead:
+
+```typescript
+import { JobPosting, Place } from '@wiser/schema';
+
+interface Vacancy extends JobPosting {
+  job_location: Place & { virtual: boolean };
+}
+```
+
 #### Adding a field
 
 The schemas in `src/zod/index.ts` are the source of truth. Each exported type, such as `BaseJobPosting` or `Extensions`, is the output of its schema, and the TSDoc on a schema's field is the TSDoc of the type's field. Add a field there, with TSDoc:
@@ -89,7 +100,7 @@ const schema = jobPostingSchema(['employmentSubunit', 'postingId']);
 const vacancy = schema.parse(row); // JobPosting<'employmentSubunit' | 'postingId'>
 ```
 
-- `jobPostingSchema(keys)` builds the schema for the base type plus the chosen extensions. Fields outside those are stripped from the row. With a literal list of keys the output type is exactly `JobPosting<K>`. With any other list, such as keys read from config, or a literal list with a key of a union type in it, the fields of every extension that may be in the list are typed as optional, because the type cannot know which were chosen. The schema still requires the required fields of the extensions it was built with.
+- `jobPostingSchema(keys)` builds the schema for the base type plus the chosen extensions. Fields outside those are stripped from the row. With a literal list of keys the output type is exactly `JobPosting<K>`. With any other list, such as keys read from config, a literal list with a key of a union type or `any` in it, or a tuple with optional elements, the fields of every extension that may be in the list are typed as optional, because the type cannot know which were chosen. The schema still requires the required fields of the extensions it was built with.
 - `BaseJobPostingSchema`, `extensionSchemas`, `EXTENSION_KEYS` and the model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema` and `MonetaryAmountSchema`) are also exported.
 - Strings have no minimum length and no date or URL format.
 

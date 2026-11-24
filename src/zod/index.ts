@@ -343,16 +343,23 @@ type UnionToIntersection<U> =
   (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 /**
- * A {@link JobPosting} with the fields of the extensions K, each optional.
+ * The output of {@link BaseJobPostingSchema}. It matches {@link JobPosting}, but
+ * it comes from the validator, so augmenting `JobPosting` does not change it and
+ * an optional field may hold `undefined`, as Zod keeps a key given as undefined.
+ */
+export type BaseJobPostingOutput = z.output<typeof BaseJobPostingSchema>;
+
+/**
+ * The output of {@link jobPostingSchema} for the extensions K: the base output
+ * plus the fields of the extensions K, each optional.
  *
  * The fields are optional even when an extension requires them, because the
- * type cannot tell which keys a list built at runtime holds. The schema from
- * {@link jobPostingSchema} still requires them. A key typed `any` counts as
- * every key.
+ * type cannot tell which keys a list built at runtime holds. The schema still
+ * requires them. A key typed `any` counts as every key.
  */
 export type JobPostingWithExtensions<K extends ExtensionKey> = [K] extends [never]
-  ? JobPosting
-  : JobPosting & Partial<UnionToIntersection<Extensions[unknown extends K ? ExtensionKey : K]>>;
+  ? BaseJobPostingOutput
+  : BaseJobPostingOutput & Partial<UnionToIntersection<Extensions[unknown extends K ? ExtensionKey : K]>>;
 
 /**
  * Builds the schema for a {@link JobPosting} with the chosen extensions.

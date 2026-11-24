@@ -73,7 +73,7 @@ describe('@wiser/schema/zod', () => {
   describe('jobPostingSchema', () => {
     it('is the base schema with no extensions', () => {
       const row = jobPostingSchema().parse({ ...minimal, posting_id: 'P1' });
-      assertType<Equals<typeof row, JobPosting>>();
+      assertType<Equals<typeof row, z.output<typeof BaseJobPostingSchema>>>();
       expect(row).to.deep.equal(minimal);
     });
 

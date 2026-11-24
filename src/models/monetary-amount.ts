@@ -1,7 +1,16 @@
-import type { z } from "zod";
-import type { MonetaryAmountSchema } from "../zod";
-
 /**
  * Represents a monetary amount, including currency and value information.
  */
-export interface MonetaryAmount extends z.output<typeof MonetaryAmountSchema> {}
+export interface MonetaryAmount {
+  /**
+   * The currency of the monetary amount.
+   * @example "USD"
+   */
+  currency: string;
+
+  /**
+   * The value of the monetary amount, could be a range.
+   * @example "50,000 - 70,000"
+   */
+  value: string;
+}

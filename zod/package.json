@@ -1,0 +1,4 @@
+{
+  "main": "../lib/zod/index.js",
+  "types": "../lib/zod/index.d.ts"
+}

@@ -1,5 +1,4 @@
 export * from './contact-point';
-export * from './extensions';
 export * from './job-posting';
 export * from './monetary-amount';
 export * from './organization';

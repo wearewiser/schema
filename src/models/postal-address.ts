@@ -1,7 +1,40 @@
-import type { z } from "zod";
-import type { PostalAddressSchema } from "../zod";
-
 /**
  * Represents a postal address, providing detailed information about a specific location.
  */
-export interface PostalAddress extends z.output<typeof PostalAddressSchema> {}
+export interface PostalAddress {
+  /**
+   * The street address.
+   * @example "123 Main St"
+   */
+  street_address?: string;
+
+  /**
+   * The locality (city or town).
+   * @example "Tech City"
+   */
+  city?: string;
+
+  /**
+   * The region (state or province).
+   * @example "TX"
+   */
+  region?: string;
+
+  /**
+   * The postal code.
+   * @example "12345"
+   */
+  postal_code?: string;
+
+  /**
+   * The country.
+   * @example "USA"
+   */
+  country?: string;
+
+  /**
+   * The country.
+   * @example "USA"
+   */
+  country_code?: string;
+}

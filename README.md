@@ -22,19 +22,19 @@ import { JobPosting } from '@wiser/schema';
 const vacancies: JobPosting[] = await fetchVacancies();
 ```
 
-`JobPosting` is the output type of `BaseJobPostingSchema` in `@wiser/schema/zod`, which holds its field documentation. Importing it loads no Zod code at runtime, but its declarations import Zod's types, so type checking it needs either:
+`JobPosting` is the output type of `BaseJobPostingSchema` in `@wiser/schema/zod`, which holds its field documentation. The root entry loads no Zod code at runtime, but its declarations import Zod's types. So type checking any import from `@wiser/schema`, even `Organization` alone, needs either:
 
 - TypeScript 5.4 or later, `lib` with ES2015 and a `URL` global (`dom` or `@types/node`), and default imports of CommonJS modules (`esModuleInterop`, `allowSyntheticDefaultImports`, or `module` `node16`/`nodenext`); or
 - TypeScript 5.0 or later with `skipLibCheck`.
 
-TypeScript 4.9 and earlier cannot read Zod's declarations. The other models are unchanged interfaces with no such requirement.
+TypeScript 4.9 and earlier cannot read Zod's declarations. The other models are still interfaces.
 
 Changes from the earlier `JobPosting` interface:
 
 - It is a type alias, not an interface, so it can no longer be augmented: `declare module '@wiser/schema' { interface JobPosting { ... } }` fails with "Duplicate identifier 'JobPosting'". Use an extension (see below) or an intersection such as `JobPosting & { tenant_field: string }`. `extends JobPosting` and `implements JobPosting` still work.
 - `job_location` is `Place | Place[]`. Code that reads it as one `Place` must narrow it first, for example with `Array.isArray`.
 - Its nested objects come from the Zod schemas, not the `Organization`, `Place`, `PostalAddress`, `ContactPoint` and `MonetaryAmount` interfaces, so augmenting those interfaces does not change `JobPosting`.
-- With `exactOptionalPropertyTypes`, its optional fields, nested ones included, accept an explicit `undefined`. As a result, its nested objects are not assignable to those interfaces, and it is not assignable to a type whose optional fields exclude `undefined`.
+- With `exactOptionalPropertyTypes`, its optional fields, nested ones included, accept an explicit `undefined`. So it is not assignable to a type whose optional fields exclude `undefined`. Nor are its nested objects that have optional fields: `hiring_organization` is not assignable to `Organization`, a `job_location` entry to `Place`, or its `address` to `PostalAddress`. `salary`, `estimated_salary` and `application_contact` have no optional fields and are still assignable.
 
 ## Validation with Zod (optional)
 
@@ -54,7 +54,7 @@ const vacancy = schema.parse(row); // throws if the row is invalid; unknown fiel
 
 ### Adding a field a consumer asks for (maintainers)
 
-1. **Base or extension.** Add it to `BaseJobPostingSchema` in `src/zod/index.ts` only when it is a schema.org `JobPosting` property that every consumer shares. That changes the root `JobPosting` for everyone. Otherwise it is an extension.
+1. **Base or extension.** A field goes in `extensionSchemas` only when schema.org `JobPosting` has no property for it, as the comment on `extensionSchemas` says. A field schema.org has belongs in `BaseJobPostingSchema` in `src/zod/index.ts`, which changes the root `JobPosting` for everyone.
 2. **Existing group or new key.** Add the field to an existing group in `src/zod/extensions.ts` when it belongs with that group's fields, such as another locale in `localeUrls`. Make it optional there: a required field would reject rows from tenants that already use the key. Add a new key when the field stands on its own or a tenant may want it without the group.
 3. **Conventions.** Keys are camelCase; fields are snake_case like the base fields. Give the key a one-line doc and each field a doc with an `@example`. Use `.optional()` when the ATS may omit the field, required when the extension means nothing without it, and `.nullable()` when the ATS sends `null` for "none". A field name must not repeat a base field or another extension's field: `jobPostingSchema` throws when both are chosen.
 4. **Derived, do not edit.** `ExtensionKey`, `Extensions`, `EXTENSION_KEYS`, `JobPostingWithExtensions` and the keys `jobPostingSchema` accepts all follow `extensionSchemas`.

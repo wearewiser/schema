@@ -14,6 +14,14 @@ If you only import the types from `@wiser/schema`, a development dependency is e
 $ npm install --save-dev @wiser/schema
 ```
 
+The types are generated from the Zod schemas, so their declarations import Zod's. You do not install Zod yourself: it is a dependency of this package, so npm installs it with it. Type checking them needs TypeScript 5.5 or later and, because Zod's declarations default-import CommonJS modules, one of these compiler options:
+
+- `module` set to `node16` or `nodenext`, or `moduleResolution` set to `bundler`
+- `esModuleInterop` or `allowSyntheticDefaultImports`
+- `skipLibCheck`
+
+With none of them, `tsc` reports TS1259 errors inside `node_modules/zod`. A `target` older than ES2015 also needs `skipLibCheck`.
+
 If you use the runtime validation from `@wiser/schema/zod` (see [Validation with Zod](#validation-with-zod)), install it as a production dependency so it is still present when you deploy with `npm ci --omit=dev`:
 
 ```bash
@@ -64,9 +72,11 @@ A key that is not in `Extensions`, or a field from an extension that was not cho
 
 #### Adding a field
 
-1. If schema.org [JobPosting](https://schema.org/JobPosting) has the property, add it to `BaseJobPosting` as an optional field under the schema.org name in snake_case. Declare optional fields as `name?: T | undefined`, because Zod keeps a key that is given as `undefined`.
-2. Otherwise, add an entry to `Extensions` in `src/models/extensions.ts`, with TSDoc, and a matching schema to `extensionSchemas` in `src/zod/index.ts`. The build fails if the extension has no schema or the schema's output does not fit the type. `npm test` runs `npm run typecheck` first, which fails unless each schema's inferred type exactly equals its type, with `exactOptionalPropertyTypes` on.
-3. A field must not reuse the name of a base field or another extension's field. `jobPostingSchema` throws if it does.
+The schemas in `src/zod/index.ts` are the source of truth. Each exported type, such as `BaseJobPosting` or `Extensions`, is the output of its schema, and the TSDoc on a schema's field is the TSDoc of the type's field. Add a field there, with TSDoc:
+
+1. If schema.org [JobPosting](https://schema.org/JobPosting) has the property, add it to `BaseJobPostingSchema` as an optional field under the schema.org name in snake_case.
+2. Otherwise, add an entry to `extensionSchemas`. Its key becomes an `ExtensionKey`, and its fields the fields of that entry in `Extensions`.
+3. A field must not reuse the name of a base field or another extension's field. `jobPostingSchema` throws if it does, and a test builds the schema with every extension.
 
 ### Validation with Zod
 
@@ -79,9 +89,9 @@ const schema = jobPostingSchema(['employmentSubunit', 'postingId']);
 const vacancy = schema.parse(row); // JobPosting<'employmentSubunit' | 'postingId'>
 ```
 
-- `jobPostingSchema(keys)` builds the schema for the base type plus the chosen extensions. Fields outside those are stripped from the row. With a literal list of keys the output type is exactly `JobPosting<K>`. With a list built at runtime, such as keys read from config, the extension fields are typed as optional, because the type cannot know which were chosen.
+- `jobPostingSchema(keys)` builds the schema for the base type plus the chosen extensions. Fields outside those are stripped from the row. With a literal list of keys the output type is exactly `JobPosting<K>`. With any other list, such as keys read from config, or a literal list with a key of a union type in it, the fields of every extension that may be in the list are typed as optional, because the type cannot know which were chosen. The schema still requires the required fields of the extensions it was built with.
 - `BaseJobPostingSchema`, `extensionSchemas`, `EXTENSION_KEYS` and the model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema` and `MonetaryAmountSchema`) are also exported.
-- The schemas mirror the types exactly: strings have no minimum length and no date or URL format.
+- Strings have no minimum length and no date or URL format.
 
 ## Models
 
@@ -95,6 +105,9 @@ const vacancy = schema.parse(row); // JobPosting<'employmentSubunit' | 'postingI
 - [PostalAddress](https://wearewiser.github.io/schema/interfaces/PostalAddress.html) - Represents a postal address, providing detailed information about a specific location.
 
 ## Development Scripts
+
+### npm start
+Builds the script and runs it. Watches the project directory for changes, and reruns the script when file changes are detected.
 
 ### npm run build
 Builds the project and outputs it to the `./lib/` directory.
@@ -118,4 +131,4 @@ Builds the project and outputs it to the `./dist/` directory. Compiled with Type
 Cleans the project directory of all compilation artifacts.
 
 ### npm run docs
-Generates the TSDocs for the current project. It first applies `patches/typedoc+0.28.20.patch` with patch-package. The repo overrides minimatch to 11 for a security fix, and TypeDoc 0.28.20 calls `matchOne()`, which minimatch 11 removed. The patch is the fix from [TypeStrong/typedoc#3151](https://github.com/TypeStrong/typedoc/pull/3151); remove it, and patch-package, once a TypeDoc release includes that fix.
+Generates the TSDocs for the current project.

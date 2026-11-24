@@ -1,16 +1,7 @@
+import type { z } from "zod";
+import type { ContactPointSchema } from "../zod";
+
 /**
  * Represents contact information for a person or organization.
  */
-export interface ContactPoint {
-  /**
-   * The name of the contact person.
-   * @example "Jane Doe"
-   */
-  name: string;
-
-  /**
-   * The email address of the contact person.
-   * @example "jane.doe@techcorp.com"
-   */
-  email: string;
-}
+export interface ContactPoint extends z.output<typeof ContactPointSchema> {}

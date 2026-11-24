@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { execFileSync } from 'child_process';
 import { BaseJobPosting, JobPosting, Place } from '.';
 
 // These tests are checked by the compiler. `npm test` runs `npm run typecheck`
@@ -32,6 +33,14 @@ interface ExtendedVacancyWithPlace extends JobPosting {
 }
 
 describe('@wiser/schema', () => {
+  it('does not load Zod at runtime', () => {
+    // A fresh process, because the Zod specs load Zod into this one.
+    const script =
+      "require('./src'); console.log(Object.keys(require.cache).some((p) => /[\\\\/]node_modules[\\\\/]zod[\\\\/]/.test(p)))";
+    const loadsZod = execFileSync(process.execPath, ['-r', 'ts-node/register', '-e', script], { encoding: 'utf8' });
+    expect(loadsZod.trim()).to.equal('false');
+  }).timeout(30000);
+
   describe('JobPosting', () => {
     it('is exactly BaseJobPosting with no argument', () => {
       const same: Equals<JobPosting, BaseJobPosting> = true;

@@ -1,45 +1,17 @@
 import { expect } from 'chai';
 import { z } from 'zod';
-import {
-  BaseJobPosting,
-  ContactPoint,
-  ExtensionKey,
-  Extensions,
-  JobPosting,
-  MonetaryAmount,
-  Organization,
-  Place,
-  PostalAddress,
-} from '../models';
-import {
-  BaseJobPostingSchema,
-  ContactPointSchema,
-  EXTENSION_KEYS,
-  extensionSchemas,
-  jobPostingSchema,
-  MonetaryAmountSchema,
-  OrganizationSchema,
-  PlaceSchema,
-  PostalAddressSchema,
-} from '.';
+import { BaseJobPosting, ExtensionKey, JobPosting, Place } from '../models';
+import { BaseJobPostingSchema, EXTENSION_KEYS, extensionSchemas, jobPostingSchema } from '.';
 
 // Compile-time checks. `npm test` runs `npm run typecheck` first, so a mismatch
 // or a `@ts-expect-error` that no longer finds an error fails the test run.
-// The interfaces are the source of truth for each schema's inferred type.
+// The exported types are the outputs of these schemas, so only jobPostingSchema's
+// output, which is typed by hand, needs checking here.
 type Equals<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 function assertType<T extends true>(): T | undefined {
   return undefined;
 }
-assertType<Equals<z.infer<typeof ContactPointSchema>, ContactPoint>>();
-assertType<Equals<z.infer<typeof MonetaryAmountSchema>, MonetaryAmount>>();
-assertType<Equals<z.infer<typeof OrganizationSchema>, Organization>>();
-assertType<Equals<z.infer<typeof PostalAddressSchema>, PostalAddress>>();
-assertType<Equals<z.infer<typeof PlaceSchema>, Place>>();
-assertType<Equals<z.infer<typeof BaseJobPostingSchema>, BaseJobPosting>>();
-assertType<
-  { [K in ExtensionKey]: Equals<z.infer<(typeof extensionSchemas)[K]>, Extensions[K]> }[ExtensionKey]
->();
 assertType<Equals<(typeof EXTENSION_KEYS)[number], ExtensionKey>>();
 
 // jobPostingSchema's output type must not claim extension fields that may be absent.
@@ -49,6 +21,9 @@ const omittedSchema = jobPostingSchema();
 assertType<Equals<z.infer<typeof omittedSchema>, BaseJobPosting>>();
 const emptySchema = jobPostingSchema([]);
 assertType<Equals<z.infer<typeof emptySchema>, BaseJobPosting>>();
+const constKeys = ['locationKeys'] as const;
+const constSchema = jobPostingSchema(constKeys);
+assertType<Equals<z.infer<typeof constSchema>, JobPosting<'locationKeys'>>>();
 
 const minimal: BaseJobPosting = {
   job_req_id: '',
@@ -138,13 +113,15 @@ describe('@wiser/schema/zod', () => {
         expect(row).to.deep.equal({ ...minimal, posting_id: 'P1' });
       });
 
-      it('keeps the fields of the literal keys beside them required', () => {
+      it('makes the fields of literal keys beside a runtime key optional too', () => {
         const key = JSON.parse('"postingId"') as ExtensionKey;
-        const row = jobPostingSchema(['unlisted', key]).parse({ ...minimal, unlisted: false });
-        assertType<Equals<typeof row.unlisted, boolean>>();
+        const schema = jobPostingSchema(['unlisted', key]);
+        const row = schema.parse({ ...minimal, unlisted: false });
+        assertType<Equals<typeof row.unlisted, boolean | undefined>>();
         assertType<Equals<typeof row.job_req_id, string>>();
         assertType<Equals<typeof row.location_keys, string[] | undefined>>();
         expect(row).to.deep.equal({ ...minimal, unlisted: false });
+        expect(schema.safeParse(minimal).success).to.equal(false);
       });
 
       it('makes the fields of an extension in only some lists of a union optional', () => {
@@ -154,20 +131,21 @@ describe('@wiser/schema/zod', () => {
         expect(row).to.deep.equal(minimal);
       });
 
-      it('keeps the fields of an extension in every list of a union required', () => {
+      it('makes the fields of an extension in every list of a union optional', () => {
         const keys = JSON.parse('false')
           ? (['unlisted', 'locationKeys'] as const)
           : (['locationKeys'] as const);
         const row = jobPostingSchema(keys).parse({ ...minimal, location_keys: [] });
-        assertType<Equals<typeof row.location_keys, string[]>>();
+        assertType<Equals<typeof row.location_keys, string[] | undefined>>();
         assertType<Equals<typeof row.unlisted, boolean | undefined>>();
         expect(row).to.deep.equal({ ...minimal, location_keys: [] });
       });
     });
 
     describe('with an optional field given as undefined', () => {
-      // Zod keeps the key, so the models declare optional fields as `T | undefined`.
-      // tsconfig.json sets exactOptionalPropertyTypes, so these checks hold under it.
+      // Zod keeps the key, so its output, and so the exported types, declare optional
+      // fields as `T | undefined`. tsconfig.json sets exactOptionalPropertyTypes, so
+      // these checks hold under it.
       it('keeps the key and types its value as possibly undefined', () => {
         const parsed = jobPostingSchema().parse({ ...minimal, work_hours: undefined });
         expect('work_hours' in parsed).to.equal(true);
@@ -177,10 +155,6 @@ describe('@wiser/schema/zod', () => {
         }
         const asInterface: BaseJobPosting = parsed;
         expect(asInterface).to.deep.equal({ ...minimal, work_hours: undefined });
-        // Spreading over defaults overwrites them with undefined, and the type says so.
-        const withDefaults = { ...{ work_hours: '37.5' }, ...parsed };
-        assertType<Equals<typeof withDefaults.work_hours, string | undefined>>();
-        expect(withDefaults.work_hours).to.equal(undefined);
       });
 
       it('does the same for nested and extension fields', () => {

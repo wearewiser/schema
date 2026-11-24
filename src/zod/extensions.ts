@@ -1,4 +1,7 @@
 import { z } from "zod";
+// Type-only import so the {@link JobPosting} below resolves for TypeDoc and editors.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { JobPosting } from "../models";
 import { PlaceSchema } from "./entities";
 
 /**

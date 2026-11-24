@@ -44,10 +44,23 @@ export interface JobPosting {
   job_location: Place;
 
   /**
+   * Whether the job is remote, hybrid or office-based, as the tenant's ATS words it.
+   * Free text for now. schema.org `jobLocationType`.
+   * @example "Hybrid"
+   */
+  job_location_type?: string;
+
+  /**
    * The URL to apply for the job.
    * @example "https://techcorp.com/careers/apply"
    */
   application_url: string;
+
+  /**
+   * The URL of the posting's page on the careers site. schema.org `url`.
+   * @example "https://techcorp.com/careers/jobs/JR0001"
+   */
+  url?: string;
 
   /**
    * The monetary amount offered for the job, can be a salary range or hourly rate.
@@ -60,6 +73,12 @@ export interface JobPosting {
    * @example "Full-time"
    */
   employment_type?: string;
+
+  /**
+   * The typical working hours for the job. schema.org `workHours`.
+   * @example "37.5"
+   */
+  work_hours?: string;
 
   /**
    * Educational qualifications required for the job.
@@ -169,4 +188,9 @@ export interface JobPosting {
    */
   date_posted: string;
 
+  /**
+   * The date after which the posting is no longer valid. schema.org `validThrough`.
+   * @example "2024-09-01T00:00:00Z"
+   */
+  valid_through?: string;
 }

@@ -68,6 +68,35 @@ describe('@wiser/schema/zod', () => {
       const row = { ...minimal, remote_type: 'Remote', job_location: { address: { city: 'London', virtual: false } } };
       expect(BaseJobPostingSchema.parse(row)).to.deep.equal({ ...minimal, job_location: { address: { city: 'London' } } });
     });
+
+    it('keeps the optional url, valid_through, work_hours and job_location_type', () => {
+      const row: JobPosting = {
+        ...minimal,
+        hiring_organization: { name: 'Tech Corp', url: 'https://techcorp.com' },
+        application_url: 'https://techcorp.com/apply',
+        url: 'https://techcorp.com/careers/jobs/JR0001',
+        valid_through: '2024-09-01T00:00:00Z',
+        work_hours: '37.5',
+        job_location_type: 'Hybrid',
+      };
+      const parsed = BaseJobPostingSchema.parse(row);
+      assertType<Equals<typeof parsed.url, string | undefined>>();
+      assertType<Equals<typeof parsed.valid_through, string | undefined>>();
+      assertType<Equals<typeof parsed.work_hours, string | undefined>>();
+      assertType<Equals<typeof parsed.job_location_type, string | undefined>>();
+      expect(parsed).to.deep.equal(row);
+      // The root url is the posting's page, not the organization's or the application's.
+      expect(parsed.url).to.equal('https://techcorp.com/careers/jobs/JR0001');
+      expect(parsed.hiring_organization.url).to.equal('https://techcorp.com');
+      expect(parsed.application_url).to.equal('https://techcorp.com/apply');
+    });
+
+    it('leaves url, valid_through, work_hours and job_location_type out when absent', () => {
+      const parsed = BaseJobPostingSchema.parse({ ...minimal, hiring_organization: { name: 'Tech Corp', url: 'https://techcorp.com' } });
+      for (const key of ['url', 'valid_through', 'work_hours', 'job_location_type']) {
+        expect(parsed).to.not.have.property(key);
+      }
+    });
   });
 
   describe('jobPostingSchema', () => {

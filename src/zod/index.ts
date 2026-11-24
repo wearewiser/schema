@@ -58,9 +58,12 @@ export const BaseJobPostingSchema = z.object({
   hiring_organization: OrganizationSchema,
   job_description: z.string(),
   job_location: PlaceSchema,
+  job_location_type: z.string().optional(),
   application_url: z.string(),
+  url: z.string().optional(),
   salary: MonetaryAmountSchema.optional(),
   employment_type: z.string().optional(),
+  work_hours: z.string().optional(),
   education_requirements: z.string().optional(),
   experience_requirements: z.string().optional(),
   qualifications: z.string().optional(),
@@ -79,6 +82,7 @@ export const BaseJobPostingSchema = z.object({
   skills: z.string().optional(),
   job_start_date: z.string().optional(),
   date_posted: z.string(),
+  valid_through: z.string().optional(),
 }) satisfies z.ZodType<JobPosting>;
 
 /**

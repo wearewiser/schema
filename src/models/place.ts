@@ -1,18 +1,13 @@
-import { PostalAddress } from "./postal-address";
+import type { z } from "zod";
+import type { PlaceSchema } from "../zod/entities";
 
 /**
  * Represents a physical location, typically where a job is based or an event occurs.
+ *
+ * The output type of `PlaceSchema` in `@wiser/schema/zod`, which holds the field
+ * documentation. The import is type-only: the root entry does not load Zod at
+ * runtime, but its declarations need Zod's types.
+ *
+ * @interface
  */
-export interface Place {
-  /**
-   * The address of the place, using a structured postal address.
-   * @example { street_address: "123 Main St", address_locality: "Tech City", address_region: "TX", postal_code: "12345", address_country: "USA" }
-   */
-  address: PostalAddress;
-
-  /**
-   * Additional details about the place (optional).
-   * @example "Office Building"
-   */
-  additional_info?: string;
-}
+export type Place = z.output<typeof PlaceSchema>;

@@ -24,14 +24,14 @@ function assertType<T extends true>(): T | undefined {
   return undefined;
 }
 
-// Each schema's output is exactly the root model it validates.
-assertType<Equals<z.output<typeof ContactPointSchema>, ContactPoint>>();
-assertType<Equals<z.output<typeof MonetaryAmountSchema>, MonetaryAmount>>();
-assertType<Equals<z.output<typeof OrganizationSchema>, Organization>>();
-assertType<Equals<z.output<typeof PostalAddressSchema>, PostalAddress>>();
-assertType<Equals<z.output<typeof PlaceSchema>, Place>>();
-assertType<Equals<z.output<typeof BaseJobPostingSchema>, JobPosting>>();
+// The root models are the schemas' outputs, so nested objects are exactly the
+// root models of the same name.
+assertType<Equals<JobPosting['hiring_organization'], Organization>>();
 assertType<Equals<JobPosting['job_location'], Place | Place[]>>();
+assertType<Equals<Place['address'], PostalAddress>>();
+assertType<Equals<JobPosting['salary'], MonetaryAmount | undefined>>();
+assertType<Equals<JobPosting['estimated_salary'], MonetaryAmount | undefined>>();
+assertType<Equals<JobPosting['application_contact'], ContactPoint | undefined>>();
 assertType<Equals<(typeof EXTENSION_KEYS)[number], ExtensionKey>>();
 
 const minimal: JobPosting = {
@@ -52,6 +52,20 @@ describe('@wiser/schema/zod', () => {
     const loadsZod = execFileSync(process.execPath, ['-r', 'ts-node/register', '-e', script], { encoding: 'utf8' });
     expect(loadsZod.trim()).to.equal('false');
   }).timeout(30000);
+
+  it('exports a schema for each nested model that strips unknown keys', () => {
+    const contact: ContactPoint = { name: 'Jane Doe', email: 'jane.doe@techcorp.com' };
+    const amount: MonetaryAmount = { currency: 'USD', value: '50,000 - 70,000' };
+    const organization: Organization = { name: 'Tech Corp' };
+    const address: PostalAddress = { city: 'London', country_code: 'GB' };
+    const place: Place = { address, additional_info: 'HQ' };
+    expect(ContactPointSchema.parse({ ...contact, phone: '' })).to.deep.equal(contact);
+    expect(MonetaryAmountSchema.parse({ ...amount, unit: 'YEAR' })).to.deep.equal(amount);
+    expect(OrganizationSchema.parse({ ...organization, logo: '' })).to.deep.equal(organization);
+    expect(PostalAddressSchema.parse({ ...address, virtual: false })).to.deep.equal(address);
+    expect(PlaceSchema.parse({ ...place, geo: {} })).to.deep.equal(place);
+    expect(PlaceSchema.safeParse({ additional_info: 'HQ' }).success).to.equal(false);
+  });
 
   describe('BaseJobPostingSchema', () => {
     it('accepts a minimal row with empty strings', () => {

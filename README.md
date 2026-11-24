@@ -22,19 +22,19 @@ import { JobPosting } from '@wiser/schema';
 const vacancies: JobPosting[] = await fetchVacancies();
 ```
 
-`JobPosting` is the output type of `BaseJobPostingSchema` in `@wiser/schema/zod`, which holds its field documentation. The root entry loads no Zod code at runtime, but its declarations import Zod's types. So type checking any import from `@wiser/schema`, even `Organization` alone, needs either:
+Each model is the output type of its schema in `@wiser/schema/zod`, which holds its field documentation: `JobPosting` of `BaseJobPostingSchema`, `Organization` of `OrganizationSchema`, and likewise `Place`, `PostalAddress`, `ContactPoint` and `MonetaryAmount`. The root entry loads no Zod code at runtime, but its declarations import Zod's types. So type checking any import from `@wiser/schema`, even `Organization` alone, or from a model path such as `@wiser/schema/lib/models/place`, needs either:
 
 - TypeScript 5.4 or later, `lib` with ES2015 and a `URL` global (`dom` or `@types/node`), and default imports of CommonJS modules (`esModuleInterop`, `allowSyntheticDefaultImports`, or `module` `node16`/`nodenext`); or
 - TypeScript 5.0 or later with `skipLibCheck`.
 
-TypeScript 4.9 and earlier cannot read Zod's declarations. The other models are still interfaces.
+TypeScript 4.9 and earlier cannot read Zod's declarations. The model paths under `@wiser/schema/lib/models/` still export the same names.
 
-Changes from the earlier `JobPosting` interface:
+Changes from the earlier interfaces:
 
-- It is a type alias, not an interface, so it can no longer be augmented: `declare module '@wiser/schema' { interface JobPosting { ... } }` fails with "Duplicate identifier 'JobPosting'". Use an extension (see below) or an intersection such as `JobPosting & { tenant_field: string }`. `extends JobPosting` and `implements JobPosting` still work.
+- The models are type aliases, not interfaces, so none of them can be augmented: `declare module '@wiser/schema' { interface JobPosting { ... } }`, or the same for `Organization`, `Place` or another model, fails with "Duplicate identifier". For `JobPosting`, use an extension (see below); otherwise use an intersection such as `JobPosting & { tenant_field: string }`. `extends` and `implements` still work.
 - `job_location` is `Place | Place[]`. Code that reads it as one `Place` must narrow it first, for example with `Array.isArray`.
-- Its nested objects come from the Zod schemas, not the `Organization`, `Place`, `PostalAddress`, `ContactPoint` and `MonetaryAmount` interfaces, so augmenting those interfaces does not change `JobPosting`.
-- With `exactOptionalPropertyTypes`, its optional fields, nested ones included, accept an explicit `undefined`. So it is not assignable to a type whose optional fields exclude `undefined`. Nor are its nested objects that have optional fields: `hiring_organization` is not assignable to `Organization`, a `job_location` entry to `Place`, or its `address` to `PostalAddress`. `salary`, `estimated_salary` and `application_contact` have no optional fields and are still assignable.
+- Nested objects are the root models: `hiring_organization` is an `Organization`, a `job_location` entry a `Place`, its `address` a `PostalAddress`, `salary` and `estimated_salary` a `MonetaryAmount`, and `application_contact` a `ContactPoint`.
+- With `exactOptionalPropertyTypes`, the optional fields of every model accept an explicit `undefined`. So `JobPosting`, `Organization`, `Place` and `PostalAddress` are not assignable to a type whose optional fields exclude `undefined`, such as the earlier interfaces. `ContactPoint` and `MonetaryAmount` have no optional fields and are unaffected.
 
 ## Validation with Zod (optional)
 
@@ -54,7 +54,7 @@ const vacancy = schema.parse(row); // throws if the row is invalid; unknown fiel
 
 ### Adding a field a consumer asks for (maintainers)
 
-1. **Base or extension.** A field goes in `extensionSchemas` only when schema.org `JobPosting` has no property for it, as the comment on `extensionSchemas` says. A field schema.org has belongs in `BaseJobPostingSchema` in `src/zod/index.ts`, which changes the root `JobPosting` for everyone.
+1. **Base or extension.** A field goes in `extensionSchemas` only when schema.org `JobPosting` has no property for it, as the comment on `extensionSchemas` says. A field schema.org has belongs in `BaseJobPostingSchema` in `src/zod/index.ts`, which changes the root `JobPosting` for everyone. The nested models' schemas, such as `PlaceSchema`, are in `src/zod/entities.ts` and change the root models in the same way.
 2. **Existing group or new key.** Add the field to an existing group in `src/zod/extensions.ts` when it belongs with that group's fields, such as another locale in `localeUrls`. Make it optional there: a required field would reject rows from tenants that already use the key. Add a new key when the field stands on its own or a tenant may want it without the group.
 3. **Conventions.** Keys are camelCase; fields are snake_case like the base fields. Give the key a one-line doc and each field a doc with an `@example`. Use `.optional()` when the ATS may omit the field, required when the extension means nothing without it, and `.nullable()` when the ATS sends `null` for "none". A field name must not repeat a base field or another extension's field: `jobPostingSchema` throws when both are chosen.
 4. **Derived, do not edit.** `ExtensionKey`, `Extensions`, `EXTENSION_KEYS`, `JobPostingWithExtensions` and the keys `jobPostingSchema` accepts all follow `extensionSchemas`.

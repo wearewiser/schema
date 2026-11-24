@@ -31,6 +31,7 @@ assertType<Equals<z.output<typeof OrganizationSchema>, Organization>>();
 assertType<Equals<z.output<typeof PostalAddressSchema>, PostalAddress>>();
 assertType<Equals<z.output<typeof PlaceSchema>, Place>>();
 assertType<Equals<z.output<typeof BaseJobPostingSchema>, JobPosting>>();
+assertType<Equals<JobPosting['job_location'], Place | Place[]>>();
 assertType<Equals<(typeof EXTENSION_KEYS)[number], ExtensionKey>>();
 
 const minimal: JobPosting = {
@@ -89,6 +90,33 @@ describe('@wiser/schema/zod', () => {
       expect(parsed.url).to.equal('https://techcorp.com/careers/jobs/JR0001');
       expect(parsed.hiring_organization.url).to.equal('https://techcorp.com');
       expect(parsed.application_url).to.equal('https://techcorp.com/apply');
+    });
+
+    describe('job_location', () => {
+      it('keeps a single location as an object', () => {
+        const parsed = BaseJobPostingSchema.parse({ ...minimal, job_location: { address: { city: 'London' } } });
+        expect(parsed.job_location).to.deep.equal({ address: { city: 'London' } });
+      });
+
+      it('keeps several locations as an array, in order', () => {
+        const job_location: Place[] = [{ address: { city: 'London' } }, { address: { city: 'Leeds' }, additional_info: 'Hybrid' }];
+        const row: JobPosting = { ...minimal, job_location };
+        expect(BaseJobPostingSchema.parse(row).job_location).to.deep.equal(job_location);
+        expect(BaseJobPostingSchema.parse({ ...minimal, job_location: [] }).job_location).to.deep.equal([]);
+      });
+
+      it('rejects an array with a malformed location', () => {
+        const result = BaseJobPostingSchema.safeParse({ ...minimal, job_location: [{ address: {} }, { address: 'Leeds' }] });
+        expect(result.success).to.equal(false);
+        expect(result.error?.issues[0].path).to.deep.equal(['job_location']);
+      });
+
+      it('is required', () => {
+        const { job_location: _omitted, ...row } = minimal;
+        const result = BaseJobPostingSchema.safeParse(row);
+        expect(result.success).to.equal(false);
+        expect(result.error?.issues[0].path).to.deep.equal(['job_location']);
+      });
     });
 
     it('leaves url, valid_through, work_hours and job_location_type out when absent', () => {

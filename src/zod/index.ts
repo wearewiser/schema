@@ -450,7 +450,7 @@ export const extensionSchemas = {
   companyName: z.object({
     /**
      * The company name.
-     * @example "IQVIA RDS Inc."
+     * @example "Example Holdings Ltd"
      */
     company_name: z.string(),
   }),

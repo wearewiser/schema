@@ -91,6 +91,39 @@ describe('@wiser/schema/zod', () => {
       expect(() => jobPostingSchema(EXTENSION_KEYS)).not.to.throw();
     });
 
+    it('accepts a row with the fields of every extension and strips nothing', () => {
+      const row: JobPosting<ExtensionKey> = {
+        ...minimal,
+        employment_subunit: 'Frontend',
+        contract_type: 'Fixed Term',
+        contract_end: '2025-03-31',
+        date_updated: '2024-08-15',
+        posting_id: 'P1',
+        posting_uuid: 'U1',
+        office_location: { address: { city: 'Atlanta' }, additional_info: 'HQ' },
+        location_keys: ['London', 'UK'],
+        search_keys: [],
+        unlisted: false,
+        job_description_corporate: '',
+        job_description_organization: '',
+        job_description_short: '',
+        company_name: 'Example Ltd',
+        job_profile: '40012 - Analyst',
+        job_profile_code: '40012',
+        job_profile_name: 'Analyst',
+        raw_job_family: 'Operations',
+        raw_job_sub_family: 'Monitoring',
+        application_url_es: 'https://example.com/es',
+        application_url_ja: null,
+        application_url_de: null,
+        application_url_cn: null,
+        application_url_fr: null,
+        business_filter_url: null,
+        linkedin_job_description_url: 'https://example.com/jobs/1?utm_source=linkedIn',
+      };
+      expect(jobPostingSchema(EXTENSION_KEYS).parse(row)).to.deep.equal(row);
+    });
+
     describe('with keys only known at runtime', () => {
       it('makes the fields of a list built at runtime optional', () => {
         const keys: ExtensionKey[] = JSON.parse('[]');

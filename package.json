@@ -23,10 +23,9 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "npm run typecheck && ./node_modules/.bin/mocha --require ts-node/register --extensions ts,tsx src 'src/**/*.{ts,tsx}'",
+    "test": "npm run typecheck && ./node_modules/.bin/mocha --require ts-node/register --extension ts,tsx src 'src/**/*.{ts,tsx}'",
     "test:watch": "npm run test -- --watch --watch-files src 'src/**/*.{ts,tsx}'",
     "coverage": "node node_modules/nyc/bin/nyc.js --exclude '**/*.spec.ts' --exclude 'src/config.ts' --extension .ts --reporter lcov --reporter text npm run test",
-    "start": "./node_modules/.bin/nodemon -q --watch 'src/**/*.ts' --ignore 'src/**/*.spec.ts' --delay 250ms --exec 'npm run build && node ./lib/schema' src/index.ts",
     "build": "npm run tsc",
     "tsc": "npm run clean && node node_modules/typescript/bin/tsc --p tsconfig.json",
     "clean": "rm -rf lib",
@@ -44,19 +43,14 @@
     "@types/cors": "^2.8.13",
     "@types/mocha": "^10.0.1",
     "@types/node": "^18.15.11",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "^8.74.0",
+    "@typescript-eslint/parser": "^8.74.0",
     "chai": "^4.3.7",
     "eslint": "^8.57.0",
-    "mocha": "^10.2.0",
-    "nodemon": "^1.12.1",
-    "npm-run-parallel": "^0.6.0",
-    "nyc": "^15.1.0",
-    "ts-loader": "^9.4.2",
+    "mocha": "^12.0.3",
+    "nyc": "^18.0.0",
     "ts-node": "^10.9.1",
     "typedoc": "^0.26.5",
-    "typescript": "^5.0.2",
-    "webpack": "^5.76.3",
-    "webpack-cli": "^5.0.1"
+    "typescript": "^5.0.2"
   }
 }

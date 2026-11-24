@@ -34,7 +34,7 @@
     "clean": "rm -rf lib",
     "lint": "./node_modules/.bin/eslint . --ext ts",
     "docs": "node node_modules/typedoc/bin/typedoc --out docs/ src/ && echo '*\n!.gitignore' > docs/.gitignore",
-    "typecheck": "node node_modules/typescript/bin/tsc -p tsconfig.json --noEmit"
+    "typecheck": "node node_modules/typescript/bin/tsc -p tsconfig.json --noEmit && node node_modules/typescript/bin/tsc -p type-tests/tsconfig.json"
   },
   "license": "MIT",
   "dependencies": {

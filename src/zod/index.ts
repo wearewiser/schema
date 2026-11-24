@@ -552,21 +552,34 @@ export const extensionSchemas = {
 export const EXTENSION_KEYS = Object.keys(extensionSchemas) as readonly ExtensionKey[];
 
 /**
- * True when T is a single type rather than a union.
+ * True when T is a single type: not a union, and not `any` or `unknown`.
  */
-type IsSingle<T, All = T> = T extends unknown ? ([All] extends [T] ? true : false) : never;
+type IsSingle<T, All = T> = unknown extends T
+  ? false
+  : T extends unknown
+    ? ([All] extends [T] ? true : false)
+    : never;
 
 /**
- * True when the list T names its extensions exactly: one tuple, such as
- * `readonly ["postingId", "unlisted"]`, whose every element is a single key.
+ * True when the list T names its extensions exactly: one tuple of a single
+ * length, such as `readonly ["postingId", "unlisted"]`, whose every element is
+ * a single key. Rest and optional elements make the length unknown.
  */
 type IsExact<T extends readonly ExtensionKey[]> = IsSingle<T> extends true
   ? number extends T["length"]
     ? false
-    : [{ [I in keyof T]: IsSingle<T[I]> }[number]] extends [true]
-      ? true
+    : IsSingle<T["length"]> extends true
+      ? [{ [I in keyof T]: IsSingle<T[I]> }[number]] extends [true]
+        ? true
+        : false
       : false
   : false;
+
+/**
+ * The keys that may be in the list T. An `any` element may be any key. The test
+ * is `unknown extends`, because `1 & T[number]` reduces to never for string keys.
+ */
+type PossibleKeys<T extends readonly ExtensionKey[]> = unknown extends T[number] ? ExtensionKey : T[number];
 
 /**
  * The output of {@link jobPostingSchema} for the list T. It is exactly
@@ -575,7 +588,7 @@ type IsExact<T extends readonly ExtensionKey[]> = IsSingle<T> extends true
  */
 type JobPostingSchemaOutput<T extends readonly ExtensionKey[]> = IsExact<T> extends true
   ? JobPosting<T[number]>
-  : BaseJobPosting & Partial<JobPosting<T[number]>>;
+  : BaseJobPosting & Partial<JobPosting<PossibleKeys<T>>>;
 
 /**
  * Builds the schema for a {@link JobPosting} with the chosen extensions.

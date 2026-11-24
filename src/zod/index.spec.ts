@@ -139,6 +139,22 @@ describe('@wiser/schema/zod', () => {
         expect(schema.safeParse(minimal).success).to.equal(false);
       });
 
+      it('keeps base fields typed and extension fields optional for keys typed any', () => {
+        const fromElement = jobPostingSchema([JSON.parse('"unlisted"')]);
+        const fromList = jobPostingSchema(JSON.parse('["unlisted"]'));
+        const anyKeys: any[] = JSON.parse('["unlisted"]'); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const fromAnyArray = jobPostingSchema(anyKeys);
+        type Dynamic = BaseJobPosting & Partial<JobPosting<ExtensionKey>>;
+        assertType<Equals<z.infer<typeof fromElement>, Dynamic>>();
+        assertType<Equals<z.infer<typeof fromList>, Dynamic>>();
+        assertType<Equals<z.infer<typeof fromAnyArray>, Dynamic>>();
+        const row = fromElement.parse({ ...minimal, unlisted: true });
+        assertType<Equals<typeof row.job_req_id, string>>();
+        assertType<Equals<typeof row.unlisted, boolean | undefined>>();
+        expect(row).to.deep.equal({ ...minimal, unlisted: true });
+        expect(fromList.safeParse(minimal).success).to.equal(false);
+      });
+
       it('makes the fields of a tuple element that is a union optional', () => {
         const key = JSON.parse('"postingId"') as 'postingId' | 'unlisted';
         const row = jobPostingSchema([key]).parse({ ...minimal, posting_id: 'P1' });

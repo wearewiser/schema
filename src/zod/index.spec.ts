@@ -5,13 +5,13 @@ import * as ts from 'typescript';
 import { z } from 'zod';
 import { ContactPoint, JobPosting, MonetaryAmount, Organization, Place, PostalAddress } from '../models';
 import {
-  BaseJobPostingOutput,
   BaseJobPostingSchema,
   ContactPointSchema,
   EXTENSION_KEYS,
   ExtensionKey,
   extensionSchemas,
   jobPostingSchema,
+  JobPostingSchemaOutput,
   MonetaryAmountSchema,
   OrganizationSchema,
   PlaceSchema,
@@ -41,7 +41,7 @@ assertType<Equals<(typeof EXTENSION_KEYS)[number], ExtensionKey>>();
 type Chosen = 'unlisted' | 'postingId' | 'businessFilterUrl';
 // The fields of those extensions as the type T has them, with their optionality.
 type ChosenFields<T> = Pick<T, Extract<keyof T, 'unlisted' | 'posting_id' | 'business_filter_url'>>;
-// As the extensions declare them, and as a list that may not hold their keys gives them.
+// As the extensions declare them, and as the output of jobPostingSchema has them.
 type Declared = { unlisted: boolean; posting_id?: string | undefined; business_filter_url: string | null };
 type AllOptional = {
   unlisted?: boolean | undefined;
@@ -52,7 +52,6 @@ type AllOptional = {
 // JobPosting with no keys is the base. With keys it adds the fields of those
 // extensions together, as their schemas declare them.
 assertType<Equals<JobPosting, z.output<typeof BaseJobPostingSchema>>>();
-assertType<Equals<JobPosting, BaseJobPostingOutput>>();
 assertType<Equals<JobPosting<never>, JobPosting>>();
 assertType<Equals<ChosenFields<JobPosting>, {}>>();
 assertType<Equals<ChosenFields<JobPosting<Chosen>>, Declared>>();
@@ -62,6 +61,15 @@ assertType<JobPosting<Chosen> extends JobPosting<'unlisted'> ? true : false>();
 assertType<JobPosting<Chosen> extends JobPosting ? true : false>();
 // A key typed `any` counts as every key instead of making the type `any`.
 assertType<Equals<JobPosting<any>, JobPosting<ExtensionKey>>>();
+
+// The output of jobPostingSchema has every base field as JobPosting has it, and
+// the fields of the chosen extensions, each optional. So it is a JobPosting,
+// but not a JobPosting<K> until the required fields are known to be there.
+assertType<Equals<ChosenFields<JobPostingSchemaOutput<Chosen>>, AllOptional>>();
+assertType<Equals<JobPostingSchemaOutput<Chosen>['job_req_id'], string>>();
+assertType<JobPostingSchemaOutput<Chosen> extends JobPosting ? true : false>();
+assertType<JobPostingSchemaOutput<Chosen> extends JobPosting<Chosen> ? false : true>();
+assertType<JobPosting<Chosen> extends JobPostingSchemaOutput<Chosen> ? true : false>();
 
 // Type checks sources as if they were files in this directory, without writing
 // them. Returns the errors and the declaration emitted for the entry source.
@@ -264,34 +272,15 @@ describe('@wiser/schema/zod', () => {
       expect(jobPostingSchema(EXTENSION_KEYS).parse(row)).to.deep.equal(row);
     });
 
+    it('accepts null for a nullable field of a chosen extension', () => {
+      const row = { ...minimal, business_filter_url: null };
+      expect(jobPostingSchema(['businessFilterUrl']).parse(row)).to.deep.equal(row);
+      // A field that is not nullable does not accept null.
+      expect(jobPostingSchema(['postingId']).safeParse({ ...minimal, posting_id: null }).success).to.equal(false);
+    });
+
     describe('output type', () => {
       const row = { ...minimal, unlisted: true, posting_id: 'P1', business_filter_url: null };
-
-      it('is the JobPosting with the keys of a fixed list', () => {
-        const inline = jobPostingSchema(['unlisted', 'postingId', 'businessFilterUrl']);
-        assertType<Equals<z.output<typeof inline>, JobPosting<Chosen>>>();
-        assertType<Equals<ChosenFields<z.output<typeof inline>>, Declared>>();
-
-        const fixed = ['unlisted', 'postingId', 'businessFilterUrl'] as const;
-        const fromConst = jobPostingSchema(fixed);
-        assertType<Equals<z.output<typeof fromConst>, JobPosting<Chosen>>>();
-
-        const declared: readonly ['businessFilterUrl', 'unlisted', 'postingId'] = ['businessFilterUrl', 'unlisted', 'postingId'];
-        const fromDeclared = jobPostingSchema(declared);
-        assertType<Equals<z.output<typeof fromDeclared>, JobPosting<Chosen>>>();
-
-        const repeated = jobPostingSchema(['unlisted', 'unlisted']);
-        assertType<Equals<z.output<typeof repeated>, JobPosting<'unlisted'>>>();
-
-        const parsed = inline.parse(row);
-        assertType<Equals<typeof parsed.job_req_id, string>>();
-        // @ts-expect-error contract_type belongs to contractType, which was not chosen.
-        expect(parsed.contract_type).to.equal(undefined);
-        expect(parsed).to.deep.equal(row);
-        // The schema requires what the type requires.
-        expect(inline.safeParse(minimal).success).to.equal(false);
-        expect(fromConst.safeParse(minimal).success).to.equal(false);
-      });
 
       it('is the base JobPosting with no list, an empty list or undefined', () => {
         const omitted = jobPostingSchema();
@@ -307,86 +296,58 @@ describe('@wiser/schema/zod', () => {
         }
       });
 
-      // For each list below, the type allows a list that lacks a key, so no
-      // extension field can be promised. `held` is what each list holds.
-      it('makes the extension fields optional for a list built at runtime', () => {
-        const held = '["postingId"]';
+      it('makes the fields of the chosen extensions optional, however the list is written', () => {
+        const inline = jobPostingSchema(['unlisted', 'postingId', 'businessFilterUrl']);
+        const fixed = ['unlisted', 'postingId', 'businessFilterUrl'] as const;
+        const fromConst = jobPostingSchema(fixed);
+        const dynamic: Chosen[] = JSON.parse('["unlisted", "postingId", "businessFilterUrl"]');
+        const fromDynamic = jobPostingSchema(dynamic);
+        assertType<Equals<z.output<typeof inline>, JobPostingSchemaOutput<Chosen>>>();
+        assertType<Equals<z.output<typeof fromConst>, JobPostingSchemaOutput<Chosen>>>();
+        assertType<Equals<z.output<typeof fromDynamic>, JobPostingSchemaOutput<Chosen>>>();
 
-        const wide: ExtensionKey[] = JSON.parse(held);
+        const parsed = inline.parse(row);
+        assertType<Equals<ChosenFields<typeof parsed>, AllOptional>>();
+        assertType<Equals<typeof parsed.job_req_id, string>>();
+        // @ts-expect-error contract_type belongs to contractType, which was not chosen.
+        expect(parsed.contract_type).to.equal(undefined);
+        expect(parsed).to.deep.equal(row);
+
+        // Only the type is optional. Each schema still requires `unlisted` and
+        // `business_filter_url`, which the minimal row lacks.
+        for (const schema of [inline, fromConst, fromDynamic]) {
+          expect(schema.safeParse(minimal).success).to.equal(false);
+          expect(schema.parse(row)).to.deep.equal(row);
+        }
+      });
+
+      it('narrows to the keys the list may hold, and requires the fields of those it does hold', () => {
+        const wide: ExtensionKey[] = JSON.parse('["postingId"]');
         const fromWide = jobPostingSchema(wide);
-        assertType<Equals<ChosenFields<z.output<typeof fromWide>>, AllOptional>>();
+        assertType<Equals<z.output<typeof fromWide>, JobPostingSchemaOutput<ExtensionKey>>>();
         assertType<Equals<z.output<typeof fromWide>['company_name'], string | undefined>>();
-        assertType<Equals<z.output<typeof fromWide>['job_req_id'], string>>();
         // The list does not hold "unlisted", so the row without it is valid.
         expect(fromWide.parse(minimal)).to.deep.equal(minimal);
-        // A list that does hold "unlisted" still requires it, though the type makes it optional.
+
         const holdsUnlisted: ExtensionKey[] = JSON.parse('["unlisted"]');
         const fromHoldsUnlisted = jobPostingSchema(holdsUnlisted);
-        assertType<Equals<z.output<typeof fromHoldsUnlisted>['unlisted'], boolean | undefined>>();
         expect(fromHoldsUnlisted.safeParse(minimal).success).to.equal(false);
         expect(fromHoldsUnlisted.parse({ ...minimal, unlisted: true })).to.deep.equal({ ...minimal, unlisted: true });
 
-        const narrow: Chosen[] = JSON.parse(held);
-        const fromNarrow = jobPostingSchema(narrow);
-        assertType<Equals<ChosenFields<z.output<typeof fromNarrow>>, AllOptional>>();
+        const narrow: Chosen[] = JSON.parse('["postingId"]');
         // @ts-expect-error company_name belongs to companyName, which the list cannot hold.
-        expect(fromNarrow.parse(minimal).company_name).to.equal(undefined);
-
-        const everyKey = jobPostingSchema(EXTENSION_KEYS);
-        assertType<Equals<ChosenFields<z.output<typeof everyKey>>, AllOptional>>();
-
-        const unionSlot: readonly [Chosen, Chosen] = JSON.parse('["postingId", "postingId"]');
-        const fromUnionSlot = jobPostingSchema(unionSlot);
-        assertType<Equals<ChosenFields<z.output<typeof fromUnionSlot>>, AllOptional>>();
-        expect(fromUnionSlot.parse(minimal)).to.deep.equal(minimal);
-
-        const inlineUnionSlot = jobPostingSchema([wide[0], 'businessFilterUrl']);
-        assertType<Equals<ChosenFields<z.output<typeof inlineUnionSlot>>, AllOptional>>();
-
-        const tupleUnion: readonly ['unlisted', 'businessFilterUrl'] | readonly ['postingId'] = JSON.parse(held);
-        const fromTupleUnion = jobPostingSchema(tupleUnion);
-        assertType<Equals<ChosenFields<z.output<typeof fromTupleUnion>>, AllOptional>>();
-        expect(fromTupleUnion.parse(minimal)).to.deep.equal(minimal);
-
-        const rest: readonly ['postingId', ...('unlisted' | 'businessFilterUrl')[]] = JSON.parse(held);
-        const fromRest = jobPostingSchema(rest);
-        assertType<Equals<ChosenFields<z.output<typeof fromRest>>, AllOptional>>();
-        expect(fromRest.parse(minimal)).to.deep.equal(minimal);
-
-        const fromSpread = jobPostingSchema(['postingId', ...narrow]);
-        assertType<Equals<ChosenFields<z.output<typeof fromSpread>>, AllOptional>>();
-
-        const maybe: readonly ['unlisted', 'postingId', 'businessFilterUrl'] | undefined = JSON.parse('null') ?? undefined;
-        const fromMaybe = jobPostingSchema(maybe);
-        assertType<Equals<ChosenFields<z.output<typeof fromMaybe>>, AllOptional>>();
-        expect(fromMaybe.parse(minimal)).to.deep.equal(minimal);
-
-        function build<K extends ExtensionKey>(keys: readonly K[]) {
-          return jobPostingSchema(keys);
-        }
-        const fromGeneric = build<Chosen>(narrow);
-        assertType<Equals<ChosenFields<z.output<typeof fromGeneric>>, AllOptional>>();
+        expect(jobPostingSchema(narrow).parse(minimal).company_name).to.equal(undefined);
       });
 
-      it('makes the extension fields optional for a mutable tuple, which can lose a key', () => {
-        const keys: ['postingId', 'unlisted', 'businessFilterUrl'] = ['postingId', 'unlisted', 'businessFilterUrl'];
-        keys.pop();
-        keys.pop();
-        const schema = jobPostingSchema(keys);
-        assertType<Equals<ChosenFields<z.output<typeof schema>>, AllOptional>>();
-        expect(schema.parse(minimal)).to.deep.equal(minimal);
-      });
-
-      it('makes the fields of every extension optional for a list or a key typed any', () => {
+      it('promises no extension field for a list or a key typed any', () => {
         const anyList = jobPostingSchema(JSON.parse('["postingId"]'));
-        assertType<Equals<ChosenFields<z.output<typeof anyList>>, AllOptional>>();
-        assertType<Equals<z.output<typeof anyList>['company_name'], string | undefined>>();
-        assertType<Equals<z.output<typeof anyList>['job_req_id'], string>>();
+        assertType<Equals<z.output<typeof anyList>, JobPosting>>();
         expect(anyList.parse(minimal)).to.deep.equal(minimal);
 
         const anyKey = jobPostingSchema([JSON.parse('"postingId"'), 'businessFilterUrl']);
         assertType<Equals<ChosenFields<z.output<typeof anyKey>>, AllOptional>>();
         assertType<Equals<z.output<typeof anyKey>['company_name'], string | undefined>>();
+        assertType<Equals<z.output<typeof anyKey>['job_req_id'], string>>();
         // @ts-expect-error not_a_field is in no extension, so the output is not `any`.
         expect(anyKey.parse({ ...minimal, business_filter_url: null }).not_a_field).to.equal(undefined);
       });
@@ -397,75 +358,68 @@ describe('@wiser/schema/zod', () => {
         assertType<Equals<JobPosting<Branded | 'businessFilterUrl'>, JobPosting<'unlisted' | 'businessFilterUrl'>>>();
         assertType<Equals<ChosenFields<JobPosting<Branded | 'businessFilterUrl'>>, { unlisted: boolean; business_filter_url: string | null }>>();
 
-        const fixed = jobPostingSchema([key, 'businessFilterUrl']);
-        assertType<Equals<z.output<typeof fixed>, JobPosting<'unlisted' | 'businessFilterUrl'>>>();
-        expect(fixed.safeParse({ ...minimal, business_filter_url: null }).success).to.equal(false);
-        expect(fixed.parse(row)).to.deep.equal({ ...minimal, unlisted: true, business_filter_url: null });
-
-        // A list of branded keys may be empty, so it promises no field.
-        const list: Branded[] = [];
-        const fromList = jobPostingSchema(list);
-        assertType<Equals<ChosenFields<z.output<typeof fromList>>, { unlisted?: boolean | undefined }>>();
-        expect(fromList.parse(minimal)).to.deep.equal(minimal);
-
-        // A slot branded over two keys holds only one of them.
-        const either = z.enum(['unlisted', 'postingId']).brand<'TenantKey'>().parse('postingId');
-        const fromEither = jobPostingSchema([either, 'businessFilterUrl']);
-        assertType<Equals<ChosenFields<z.output<typeof fromEither>>, AllOptional>>();
-        expect(fromEither.parse({ ...minimal, business_filter_url: null })).to.not.have.property('unlisted');
+        const schema = jobPostingSchema([key, 'businessFilterUrl']);
+        assertType<
+          Equals<ChosenFields<z.output<typeof schema>>, { unlisted?: boolean | undefined; business_filter_url?: string | null | undefined }>
+        >();
+        expect(schema.safeParse({ ...minimal, business_filter_url: null }).success).to.equal(false);
+        expect(schema.parse(row)).to.deep.equal({ ...minimal, unlisted: true, business_filter_url: null });
       });
 
-      // A generic function that returns the output does not know the list type,
-      // so its declaration carries the output type unresolved. The declaration
-      // must name JobPostingSchemaOutput. Spelled out instead, the type repeats
-      // its per-slot check until the compiler gives up and writes `any`, and a
-      // consumer of that declaration takes tens of seconds to type check.
-      it('is named in the declaration of a generic function that returns it', () => {
+      // A generic function that returns the output does not know the keys, so
+      // its declaration carries the output type unresolved. The declaration
+      // must stay compact by naming JobPostingSchemaOutput, and a consumer that
+      // sees only the declaration must get the same types.
+      it('is named in the declaration of a function that returns it', () => {
         const producer = compile(
           {
             'declaration-producer.ts': `
               import { jobPostingSchema, type ExtensionKey } from '.';
-              export const read = <const T extends readonly ExtensionKey[]>(keys: T) => jobPostingSchema(keys).parse({});
+              export const read = <K extends ExtensionKey>(keys: readonly K[]) => jobPostingSchema(keys).parse({});
               export const readWith = <K extends ExtensionKey>(key: K) => jobPostingSchema([key, 'postingId']).parse({});
               export const build = <K extends ExtensionKey>(keys: readonly K[]) => jobPostingSchema(keys);
+              export const fixed = jobPostingSchema(['unlisted']);
             `,
           },
           'declaration-producer.ts',
         );
         expect(producer.errors).to.deep.equal([]);
-        expect(producer.declaration).to.include('JobPostingSchemaOutput<T>');
-        expect(producer.declaration).to.include('JobPostingSchemaOutput<readonly [K, "postingId"]>');
-        expect(producer.declaration).to.include('JobPostingSchemaOutput<readonly K[]>');
-        expect(producer.declaration).to.not.match(/\binfer\b|\bany\b/);
+        expect(producer.declaration).to.include('JobPostingSchemaOutput<K>');
+        expect(producer.declaration).to.include('JobPostingSchemaOutput<"postingId" | K>');
+        expect(producer.declaration).to.include('JobPostingSchemaOutput<"unlisted">');
+        // Neither spelled out field by field nor given up on as `any`.
+        expect(producer.declaration).to.not.match(/\bany\b|job_req_id/);
 
-        // The inference still works for a consumer that sees only the declaration.
         const consumer = compile(
           {
             'declaration-producer.d.ts': producer.declaration,
             'declaration-consumer.ts': `
-              import { read, readWith, build } from './declaration-producer';
-              export const required: boolean = read(['unlisted']).unlisted;
+              import type { JobPosting } from '../models';
+              import { read, readWith, build, fixed } from './declaration-producer';
+              export const base: JobPosting = read(['unlisted']);
+              export const required: string = read(['unlisted']).job_req_id;
+              export const optional: boolean | undefined = read(['unlisted']).unlisted;
+              // @ts-expect-error the output does not promise unlisted.
+              export const notPromised: boolean = read(['unlisted']).unlisted;
               // @ts-expect-error unlisted is a boolean, so the output is not \`any\`.
-              export const notAny: string = read(['unlisted']).unlisted;
+              export const notAny: string | undefined = read(['unlisted']).unlisted;
               // @ts-expect-error posting_id belongs to postingId, which was not chosen.
               export const notChosen = read(['unlisted']).posting_id;
-              export const nullable: string | null = readWith('businessFilterUrl').business_filter_url;
-              export const optional: boolean | undefined = build(['unlisted'] as 'unlisted'[]).parse({}).unlisted;
-              // @ts-expect-error a list built at runtime does not promise unlisted.
-              export const notPromised: boolean = build(['unlisted'] as 'unlisted'[]).parse({}).unlisted;
+              export const nullable: string | null | undefined = readWith('businessFilterUrl').business_filter_url;
+              export const added: string | undefined = readWith('businessFilterUrl').posting_id;
+              export const dynamic: boolean | undefined = build(['unlisted'] as 'unlisted'[]).parse({}).unlisted;
+              // @ts-expect-error the output is not the exact JobPosting<'unlisted'>.
+              export const exact: JobPosting<'unlisted'> = fixed.parse({});
+              export const checked = (row: unknown): JobPosting<'unlisted'> | undefined => {
+                const parsed = fixed.parse(row);
+                return parsed.unlisted === undefined ? undefined : { ...parsed, unlisted: parsed.unlisted };
+              };
             `,
           },
           'declaration-consumer.ts',
         );
         expect(consumer.errors).to.deep.equal([]);
       }).timeout(60000);
-
-      it('does not compile for a tuple with an optional slot', () => {
-        const optional: readonly ['postingId', second?: 'unlisted'] = ['postingId'];
-        // @ts-expect-error the optional slot may hold undefined, which is not a key.
-        const schema = jobPostingSchema(optional);
-        expect(schema.parse(minimal)).to.deep.equal(minimal);
-      });
     });
 
     it('accepts the same extension twice', () => {

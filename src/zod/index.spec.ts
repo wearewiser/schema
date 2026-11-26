@@ -12,7 +12,6 @@ import {
   ExtensionKey,
   extensionSchemas,
   jobPostingSchema,
-  JobPostingWithExtensions,
   MonetaryAmountSchema,
   OrganizationSchema,
   PlaceSchema,
@@ -49,7 +48,6 @@ type AllOptional = {
   posting_id?: string | undefined;
   business_filter_url?: string | null | undefined;
 };
-type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 // JobPosting with no keys is the base. With keys it adds the fields of those
 // extensions together, as their schemas declare them.
@@ -64,13 +62,6 @@ assertType<JobPosting<Chosen> extends JobPosting<'unlisted'> ? true : false>();
 assertType<JobPosting<Chosen> extends JobPosting ? true : false>();
 // A key typed `any` counts as every key instead of making the type `any`.
 assertType<Equals<JobPosting<any>, JobPosting<ExtensionKey>>>();
-
-// The deprecated alias keeps its meaning: every extension field is optional.
-assertType<Equals<JobPostingWithExtensions<never>, BaseJobPostingOutput>>();
-assertType<Equals<ChosenFields<JobPostingWithExtensions<Chosen>>, AllOptional>>();
-assertType<MutuallyAssignable<JobPostingWithExtensions<Chosen>, JobPosting & Partial<JobPosting<Chosen>>>>();
-// A JobPosting with the same keys is one, so code that names the alias still accepts it.
-assertType<JobPosting<Chosen> extends JobPostingWithExtensions<Chosen> ? true : false>();
 
 // Type checks sources as if they were files in this directory, without writing
 // them. Returns the errors and the declaration emitted for the entry source.
@@ -468,31 +459,6 @@ describe('@wiser/schema/zod', () => {
         // @ts-expect-error the optional slot may hold undefined, which is not a key.
         const schema = jobPostingSchema(optional);
         expect(schema.parse(minimal)).to.deep.equal(minimal);
-      });
-
-      it('keeps the deprecated type argument, with every extension field optional', () => {
-        const explicit = jobPostingSchema<Chosen>(['unlisted', 'postingId', 'businessFilterUrl']);
-        assertType<Equals<z.output<typeof explicit>, JobPostingWithExtensions<Chosen>>>();
-        const none = jobPostingSchema<never>();
-        assertType<Equals<z.output<typeof none>, BaseJobPostingOutput>>();
-        expect(explicit.safeParse(minimal).success).to.equal(false);
-        expect(none.parse(row)).to.deep.equal(minimal);
-      });
-
-      it('fits code that names the deprecated alias', () => {
-        const keys: ExtensionKey[] = JSON.parse('["unlisted"]');
-        const inferred = jobPostingSchema(keys);
-        assertType<MutuallyAssignable<z.output<typeof inferred>, JobPostingWithExtensions<ExtensionKey>>>();
-        const dynamic: z.ZodType<JobPostingWithExtensions<ExtensionKey>> = inferred;
-        const fixed: z.ZodType<JobPostingWithExtensions<'unlisted'>> = jobPostingSchema(['unlisted']);
-        expect(dynamic.safeParse(minimal).success).to.equal(false);
-        expect(fixed.safeParse(minimal).success).to.equal(false);
-
-        // A generic wrapper that names the alias and leaves the call to inference.
-        function wrap<K extends ExtensionKey>(list: readonly K[]): z.ZodType<JobPostingWithExtensions<K>> {
-          return jobPostingSchema(list);
-        }
-        expect(wrap(['unlisted']).safeParse(minimal).success).to.equal(false);
       });
     });
 

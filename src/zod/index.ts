@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { JobPosting } from "../models";
 import { ContactPointSchema, MonetaryAmountSchema, OrganizationSchema, PlaceSchema } from "./entities";
 import { extensionSchemas } from "./extensions";
-import type { ExtensionKey, Extensions, PlainKeys, UnionToIntersection } from "./extensions";
+import type { ExtensionKey, PlainKeys, UnionToIntersection } from "./extensions";
 
 // Opt-in runtime validation. The root entry, `@wiser/schema`, does not load this
 // module at runtime. Its JobPosting type is inferred from BaseJobPostingSchema,
@@ -215,20 +215,6 @@ export const BaseJobPostingSchema = z.object({
 export type BaseJobPostingOutput = z.output<typeof BaseJobPostingSchema>;
 
 /**
- * The base output plus the fields of the extensions K, each optional even when
- * its extension requires it. It reads the keys as {@link JobPosting} does, so
- * that the output of {@link jobPostingSchema} for a list of keys K fits it
- * while K is still a type parameter.
- *
- * @deprecated Use {@link JobPosting} with the same keys, `JobPosting<K>`, which
- * keeps a required field required. For the type this alias gives, write
- * `JobPosting & Partial<JobPosting<K>>`.
- */
-export type JobPostingWithExtensions<K extends ExtensionKey> = [K] extends [never]
-  ? BaseJobPostingOutput
-  : BaseJobPostingOutput & Partial<UnionToIntersection<Extensions[PlainKeys<K>]>>;
-
-/**
  * The keys a list of type T may hold.
  */
 type ListedKeys<T extends readonly ExtensionKey[] | undefined> = NonNullable<T>[number];
@@ -298,13 +284,6 @@ export function jobPostingSchema(): z.ZodType<JobPosting>;
 export function jobPostingSchema<const T extends readonly ExtensionKey[] | undefined>(
   extensions: T,
 ): z.ZodType<JobPostingSchemaOutput<T>>;
-/**
- * @deprecated Leave out the type argument, so that the output type follows the
- * list. With a type argument, the fields of the extensions K are all optional.
- */
-export function jobPostingSchema<K extends ExtensionKey = never>(
-  extensions?: readonly K[],
-): z.ZodType<JobPostingWithExtensions<K>>;
 export function jobPostingSchema(extensions: readonly ExtensionKey[] = []): z.ZodType {
   const shape: Record<string, z.ZodType> = { ...BaseJobPostingSchema.shape };
   for (const key of new Set(extensions)) {

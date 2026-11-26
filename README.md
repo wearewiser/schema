@@ -87,23 +87,12 @@ A list counts as built at runtime when its type is an array such as `ExtensionKe
 - Type checking this entry needs TypeScript 5.5 or later, `lib` with ES2015 and a `URL` global (`dom` or `@types/node`), and default imports of CommonJS modules (`esModuleInterop`, `allowSyntheticDefaultImports`, or `module` `node16`/`nodenext`), or `skipLibCheck`.
 - From a native ES module, import `@wiser/schema/lib/zod/index.js`.
 
-### Migrating from `JobPostingWithExtensions`
-
-`JobPosting<K>` replaces `JobPostingWithExtensions<K>`, which made every extension field optional. The old alias is still exported from `@wiser/schema/zod` with the same meaning, but it is deprecated.
-
-- **The type.** Replace `JobPostingWithExtensions<K>` from `@wiser/schema/zod` with `JobPosting<K>` from `@wiser/schema`. Required extension fields become required: `unlisted` is `boolean`, not `boolean | undefined`. Code that reads a posting still compiles. Code that builds one must now set those fields. To keep the old type exactly, write `JobPosting & Partial<JobPosting<K>>`.
-- **`jobPostingSchema` with a fixed list.** The result was `JobPostingWithExtensions<K>` and is now `JobPosting<K>`. This is the one deliberate incompatibility: a value you build and annotate with the schema's output type must now set the required extension fields. The new result is still assignable to `JobPostingWithExtensions<K>`, so code that names the old alias compiles.
-- **`jobPostingSchema` with a list built at runtime.** Nothing to change. The extension fields are optional as before, and the result and `JobPostingWithExtensions<K>` are assignable to each other.
-- **`jobPostingSchema<K>(keys)` with a type argument.** It still compiles and still makes every extension field optional, but it is deprecated. Leave out the type argument so that the type follows the list.
-
-Validation itself has not changed: the schema checks the same fields as before.
-
 ### Adding a field a consumer asks for (maintainers)
 
 1. **Base or extension.** A field goes in `extensionSchemas` only when schema.org `JobPosting` has no property for it, as the comment on `extensionSchemas` says. A field schema.org has belongs in `BaseJobPostingSchema` in `src/zod/index.ts`, which changes the root `JobPosting` for everyone. The nested models' schemas, such as `PlaceSchema`, are in `src/zod/entities.ts` and change the root models in the same way.
 2. **Existing group or new key.** Add the field to an existing group in `src/zod/extensions.ts` when it belongs with that group's fields, such as another locale in `localeUrls`. Make it optional there: a required field would reject rows from tenants that already use the key, and would be required in their `JobPosting<K>`. Add a new key when the field stands on its own or a tenant may want it without the group.
 3. **Conventions.** Keys are camelCase; fields are snake_case like the base fields. Give the key a one-line doc and each field a doc with an `@example`. Use `.optional()` when the ATS may omit the field, required when the extension means nothing without it, and `.nullable()` when the ATS sends `null` for "none". A field name must not repeat a base field or another extension's field: `jobPostingSchema` throws when both are chosen.
-4. **Derived, do not edit.** `ExtensionKey`, `Extensions`, `EXTENSION_KEYS`, the fields `JobPosting<K>` adds, the deprecated `JobPostingWithExtensions` and the keys `jobPostingSchema` accepts all follow `extensionSchemas`.
+4. **Derived, do not edit.** `ExtensionKey`, `Extensions`, `EXTENSION_KEYS`, the fields `JobPosting<K>` adds and the keys `jobPostingSchema` accepts all follow `extensionSchemas`.
 5. **Tests** in `src/zod/index.spec.ts`: the field is kept when its key is chosen and stripped when it is not, a wrong type is rejected, and so is a missing required field. Add the field to the row in "accepts a row with the fields of every extension"; "builds with every extension without a field collision" catches name clashes.
 6. **Verify** with `npm ci`, then `npm test`, `npm run lint`, `npm run build` and `npm run docs`.
 

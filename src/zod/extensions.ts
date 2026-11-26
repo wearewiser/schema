@@ -255,16 +255,6 @@ export type ExtensionKey = keyof typeof extensionSchemas;
 export type Extensions = { [K in ExtensionKey]: z.output<(typeof extensionSchemas)[K]> };
 
 /**
- * The keys of {@link extensionSchemas} that a key of type K may be. A key or a
- * union of keys is itself. A subtype of a key, such as a branded key, counts as
- * that key, and a key typed `any` as every key.
- *
- * `Extensions` must be indexed by these and not by K: indexing by a branded key
- * finds no fields.
- */
-export type PlainKeys<K> = { [P in ExtensionKey]: [K & P] extends [never] ? never : P }[ExtensionKey];
-
-/**
  * Turns a union of types into the intersection of those types. Applied to
  * `Extensions[K]`, it merges the fields of the extensions K into one type.
  */

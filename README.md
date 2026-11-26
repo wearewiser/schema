@@ -84,7 +84,7 @@ The result's type is `JobPostingSchemaOutput<K>`, which is `JobPosting & Partial
 
 The result is a `JobPosting`, so code that needs only the base fields takes it as it is. Code that reads an extension field checks it as it would any optional field. When the list holds the key of a required field, that check always passes, as the schema has already rejected a row without the field.
 
-`K` is every key the list may hold. For a list typed `ExtensionKey[]`, the result has the fields of every extension, each optional, and likewise for a list or a key typed `any`. No list, `[]` and `undefined` give the base `JobPosting`. A branded key, such as the output of `z.literal('unlisted').brand()`, counts as its key, in `JobPosting<K>` too.
+`K` is every key the list may hold. For a list typed `ExtensionKey[]`, the result has the fields of every extension, each optional, and likewise for a list or a key typed `any`. No list, `[]` and `undefined` give the base `JobPosting`.
 
 - `jobPostingSchema(keys)` validates a `JobPosting` plus the fields of the chosen extensions, listed in `extensionSchemas`. It throws on an unknown key or on an extension that redefines a field.
 - `JobPostingSchemaOutput<K>` is the type of the result for the keys `K`. The declaration of a generic function that wraps `jobPostingSchema` names it. For example, `<K extends ExtensionKey>(keys: readonly K[], row: unknown) => jobPostingSchema(keys).parse(row)` returns `JobPostingSchemaOutput<K>`. A function that returns the schema instead returns a `z.ZodType` of it.

@@ -352,20 +352,6 @@ describe('@wiser/schema/zod', () => {
         expect(anyKey.parse({ ...minimal, business_filter_url: null }).not_a_field).to.equal(undefined);
       });
 
-      it('counts a branded key as its key', () => {
-        const key = z.literal('unlisted').brand<'TenantKey'>().parse('unlisted');
-        type Branded = typeof key;
-        assertType<Equals<JobPosting<Branded | 'businessFilterUrl'>, JobPosting<'unlisted' | 'businessFilterUrl'>>>();
-        assertType<Equals<ChosenFields<JobPosting<Branded | 'businessFilterUrl'>>, { unlisted: boolean; business_filter_url: string | null }>>();
-
-        const schema = jobPostingSchema([key, 'businessFilterUrl']);
-        assertType<
-          Equals<ChosenFields<z.output<typeof schema>>, { unlisted?: boolean | undefined; business_filter_url?: string | null | undefined }>
-        >();
-        expect(schema.safeParse({ ...minimal, business_filter_url: null }).success).to.equal(false);
-        expect(schema.parse(row)).to.deep.equal({ ...minimal, unlisted: true, business_filter_url: null });
-      });
-
       // A generic function that returns the output does not know the keys, so
       // its declaration carries the output type unresolved. The declaration
       // must stay compact by naming JobPostingSchemaOutput, and a consumer that

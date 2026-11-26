@@ -90,8 +90,8 @@ export const PostalAddressSchema = z.object({
   country: z.string().optional(),
 
   /**
-   * The country.
-   * @example "USA"
+   * The country code.
+   * @example "US"
    */
   country_code: z.string().optional(),
 });
@@ -103,7 +103,7 @@ export const PostalAddressSchema = z.object({
 export const PlaceSchema = z.object({
   /**
    * The address of the place, using a structured postal address.
-   * @example { street_address: "123 Main St", address_locality: "Tech City", address_region: "TX", postal_code: "12345", address_country: "USA" }
+   * @example { street_address: "123 Main St", city: "Tech City", region: "TX", postal_code: "12345", country: "USA" }
    */
   address: PostalAddressSchema,
 

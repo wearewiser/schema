@@ -52,7 +52,7 @@ export const BaseJobPostingSchema = z.object({
   /**
    * The location where the job is available, or a list of locations when there
    * are several. A single location stays a single object; a list stays a list.
-   * @example { address: { street_address: "123 Main St", address_locality: "Tech City", address_region: "TX", postal_code: "12345", address_country: "USA" } }
+   * @example { address: { street_address: "123 Main St", city: "Tech City", region: "TX", postal_code: "12345", country: "USA" } }
    * @example [{ address: { city: "London" } }, { address: { city: "Leeds" } }]
    */
   job_location: z.union([PlaceSchema, z.array(PlaceSchema)]),

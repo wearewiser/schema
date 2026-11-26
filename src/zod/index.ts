@@ -217,8 +217,9 @@ export const BaseJobPostingSchema = z.object({
  * cautious. The schema requires the required fields of the keys the list holds.
  * `JobPosting<K>` is the exact type, for a value known to have those fields.
  *
- * A generic function that wraps `jobPostingSchema` returns this type, and the
- * function's declaration names it.
+ * The declaration of a generic function that wraps `jobPostingSchema` names
+ * this type: as its return type when the function returns a parsed row, and
+ * inside `z.ZodType` when it returns the schema.
  */
 export type JobPostingSchemaOutput<K extends ExtensionKey> = JobPosting & Partial<JobPosting<K>>;
 
@@ -235,6 +236,8 @@ export function jobPostingSchema(extensions?: readonly []): z.ZodType<JobPosting
  * lacks a required field is rejected. The output type is more cautious and
  * makes every extension field optional. See {@link JobPostingSchemaOutput}.
  *
+ * @typeParam T - The type of the list. The output has the fields of every key
+ * a list of that type may hold.
  * @param extensions - The keys of the extensions the tenant uses.
  * @throws Error if a key is not in {@link extensionSchemas}, or if a chosen
  * extension redefines a base field or another chosen extension's field.
@@ -245,9 +248,9 @@ export function jobPostingSchema(extensions?: readonly []): z.ZodType<JobPosting
  * vacancy.unlisted; // boolean | undefined
  * ```
  */
-export function jobPostingSchema<K extends ExtensionKey>(
-  extensions: readonly K[] | undefined,
-): z.ZodType<JobPostingSchemaOutput<K>>;
+export function jobPostingSchema<T extends readonly ExtensionKey[] | undefined>(
+  extensions: T,
+): z.ZodType<JobPostingSchemaOutput<NonNullable<T>[number]>>;
 export function jobPostingSchema(extensions: readonly ExtensionKey[] = []): z.ZodType {
   const shape: Record<string, z.ZodType> = { ...BaseJobPostingSchema.shape };
   for (const key of new Set(extensions)) {

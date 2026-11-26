@@ -339,9 +339,9 @@ describe('@wiser/schema/zod', () => {
         expect(jobPostingSchema(narrow).parse(minimal).company_name).to.equal(undefined);
       });
 
-      it('promises no extension field for a list or a key typed any', () => {
+      it('makes the fields of every extension optional for a list or a key typed any', () => {
         const anyList = jobPostingSchema(JSON.parse('["postingId"]'));
-        assertType<Equals<z.output<typeof anyList>, JobPosting>>();
+        assertType<Equals<z.output<typeof anyList>, JobPostingSchemaOutput<ExtensionKey>>>();
         expect(anyList.parse(minimal)).to.deep.equal(minimal);
 
         const anyKey = jobPostingSchema([JSON.parse('"postingId"'), 'businessFilterUrl']);
@@ -378,6 +378,7 @@ describe('@wiser/schema/zod', () => {
               export const read = <K extends ExtensionKey>(keys: readonly K[]) => jobPostingSchema(keys).parse({});
               export const readWith = <K extends ExtensionKey>(key: K) => jobPostingSchema([key, 'postingId']).parse({});
               export const build = <K extends ExtensionKey>(keys: readonly K[]) => jobPostingSchema(keys);
+              export const forward = <T extends readonly ExtensionKey[]>(keys: T) => jobPostingSchema(keys).parse({});
               export const fixed = jobPostingSchema(['unlisted']);
             `,
           },
@@ -386,6 +387,7 @@ describe('@wiser/schema/zod', () => {
         expect(producer.errors).to.deep.equal([]);
         expect(producer.declaration).to.include('JobPostingSchemaOutput<K>');
         expect(producer.declaration).to.include('JobPostingSchemaOutput<"postingId" | K>');
+        expect(producer.declaration).to.include('JobPostingSchemaOutput<NonNullable<T>[number]>');
         expect(producer.declaration).to.include('JobPostingSchemaOutput<"unlisted">');
         // Neither spelled out field by field nor given up on as `any`.
         expect(producer.declaration).to.not.match(/\bany\b|job_req_id/);
@@ -395,7 +397,7 @@ describe('@wiser/schema/zod', () => {
             'declaration-producer.d.ts': producer.declaration,
             'declaration-consumer.ts': `
               import type { JobPosting } from '../models';
-              import { read, readWith, build, fixed } from './declaration-producer';
+              import { read, readWith, build, forward, fixed } from './declaration-producer';
               export const base: JobPosting = read(['unlisted']);
               export const required: string = read(['unlisted']).job_req_id;
               export const optional: boolean | undefined = read(['unlisted']).unlisted;
@@ -408,6 +410,15 @@ describe('@wiser/schema/zod', () => {
               export const nullable: string | null | undefined = readWith('businessFilterUrl').business_filter_url;
               export const added: string | undefined = readWith('businessFilterUrl').posting_id;
               export const dynamic: boolean | undefined = build(['unlisted'] as 'unlisted'[]).parse({}).unlisted;
+              // A wrapper generic over the list keeps the keys of the list it is given.
+              export const forwarded: boolean | undefined = forward(['unlisted']).unlisted;
+              // @ts-expect-error the output does not promise unlisted.
+              export const forwardedNotPromised: boolean = forward(['unlisted']).unlisted;
+              // @ts-expect-error posting_id belongs to postingId, which the list does not hold.
+              export const forwardedNotChosen = forward(['unlisted']).posting_id;
+              export const forwardedBase: JobPosting = forward([]);
+              // @ts-expect-error an empty list has no extension field.
+              export const forwardedEmpty = forward([]).unlisted;
               // @ts-expect-error the output is not the exact JobPosting<'unlisted'>.
               export const exact: JobPosting<'unlisted'> = fixed.parse({});
               export const checked = (row: unknown): JobPosting<'unlisted'> | undefined => {

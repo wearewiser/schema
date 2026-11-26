@@ -71,7 +71,7 @@ Fields outside the base and the chosen extensions are stripped from the result.
 - `jobPostingSchema(keys)` validates a `JobPosting` plus the fields of the chosen extensions, listed in `extensionSchemas`. It throws on an unknown key or on an extension that redefines a field. The schema requires the fields an extension requires, though the type makes them optional.
 - `BaseJobPostingSchema`, `extensionSchemas`, `EXTENSION_KEYS` and the model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema`, `MonetaryAmountSchema`) are also exported.
 - Type checking this entry needs TypeScript 5.5 or later, `lib` with ES2015 and a `URL` global (`dom` or `@types/node`), and default imports of CommonJS modules (`esModuleInterop`, `allowSyntheticDefaultImports`, or `module` `node16`/`nodenext`), or `skipLibCheck`.
-- To combine these schemas with your own Zod code, such as `z.array(PlaceSchema)` or `.extend(...)`, keep your own `zod` at a version in this package's range, `^4.6.6`, so that npm installs one copy for both. Schemas from two copies of Zod can fail to type check together.
+- To combine these schemas with your own Zod code, such as `z.array(PlaceSchema)` or `.extend(...)`, check with `npm ls zod` that your project and this package share one installed copy of Zod. A compatible range such as `^4.6.6` does not guarantee that: a lockfile or a pin can still leave two installs. If there are two, align your installed `zod` version with the one listed under `@wiser/schema`. Two copies at different versions can fail to type check together.
 - From a native ES module, import `@wiser/schema/lib/zod/index.js`.
 
 ### Adding a field a consumer asks for (maintainers)

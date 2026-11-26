@@ -1,5 +1,7 @@
 import { expect } from 'chai';
 import { execFileSync } from 'child_process';
+import * as path from 'path';
+import * as ts from 'typescript';
 import { z } from 'zod';
 import { ContactPoint, JobPosting, MonetaryAmount, Organization, Place, PostalAddress } from '../models';
 import {
@@ -8,8 +10,6 @@ import {
   EXTENSION_KEYS,
   ExtensionKey,
   extensionSchemas,
-  jobPostingSchema,
-  JobPostingWithExtensions,
   MonetaryAmountSchema,
   OrganizationSchema,
   PlaceSchema,
@@ -33,6 +33,67 @@ assertType<Equals<JobPosting['salary'], MonetaryAmount | undefined>>();
 assertType<Equals<JobPosting['estimated_salary'], MonetaryAmount | undefined>>();
 assertType<Equals<JobPosting['application_contact'], ContactPoint | undefined>>();
 assertType<Equals<(typeof EXTENSION_KEYS)[number], ExtensionKey>>();
+
+// The three extensions the type checks choose: one with a required field, one
+// with an optional field and one with a nullable field.
+type Chosen = 'unlisted' | 'postingId' | 'businessFilterUrl';
+// The fields of those extensions as the type T has them, with their optionality.
+type ChosenFields<T> = Pick<T, Extract<keyof T, 'unlisted' | 'posting_id' | 'business_filter_url'>>;
+// As the extensions declare them.
+type Declared = { unlisted: boolean; posting_id?: string | undefined; business_filter_url: string | null };
+
+// JobPosting with no keys is the base. With keys it adds the fields of those
+// extensions together, as their schemas declare them.
+assertType<Equals<JobPosting, z.output<typeof BaseJobPostingSchema>>>();
+assertType<Equals<JobPosting<never>, JobPosting>>();
+assertType<Equals<ChosenFields<JobPosting>, {}>>();
+assertType<Equals<ChosenFields<JobPosting<Chosen>>, Declared>>();
+assertType<Equals<ChosenFields<JobPosting<'unlisted'>>, { unlisted: boolean }>>();
+assertType<Equals<JobPosting<Chosen>['job_location'], Place | Place[]>>();
+assertType<JobPosting<Chosen> extends JobPosting<'unlisted'> ? true : false>();
+assertType<JobPosting<Chosen> extends JobPosting ? true : false>();
+// A key typed `any` counts as every key instead of making the type `any`.
+assertType<Equals<JobPosting<any>, JobPosting<ExtensionKey>>>();
+
+// The fields of T as one object type, so that a schema's output, which is one
+// object type, can be compared with JobPosting<K>, which is an intersection.
+type Fields<T> = { [P in keyof T]: T[P] };
+
+// Type checks sources as if they were files in this directory, without writing
+// them. Returns the errors and the declaration emitted for the entry source.
+function compile(sources: Record<string, string>, entry: string): { errors: string[]; declaration: string } {
+  const options: ts.CompilerOptions = {
+    strict: true,
+    target: ts.ScriptTarget.ES2017,
+    module: ts.ModuleKind.CommonJS,
+    moduleResolution: ts.ModuleResolutionKind.Node10,
+    esModuleInterop: true,
+    skipLibCheck: true,
+    types: [],
+    declaration: true,
+    emitDeclarationOnly: true,
+  };
+  const here = (name: string) => path.join(__dirname, name).replace(/\\/g, '/');
+  const virtual = new Map(Object.keys(sources).map((name) => [here(name), sources[name]]));
+  const host = ts.createCompilerHost(options);
+  const onDisk = { fileExists: host.fileExists, readFile: host.readFile, getSourceFile: host.getSourceFile };
+  host.fileExists = (file) => virtual.has(file) || onDisk.fileExists(file);
+  host.readFile = (file) => virtual.get(file) ?? onDisk.readFile(file);
+  host.getSourceFile = (file, languageVersion, ...rest) => {
+    const text = virtual.get(file);
+    return text === undefined ? onDisk.getSourceFile(file, languageVersion, ...rest) : ts.createSourceFile(file, text, languageVersion);
+  };
+  let declaration = '';
+  host.writeFile = (_file, text) => {
+    declaration = text;
+  };
+  const program = ts.createProgram([here(entry)], options, host);
+  const emitted = program.emit(program.getSourceFile(here(entry)));
+  const errors = [...ts.getPreEmitDiagnostics(program), ...emitted.diagnostics].map((diagnostic) =>
+    ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+  );
+  return { errors, declaration };
+}
 
 const minimal: JobPosting = {
   job_req_id: '',
@@ -141,34 +202,154 @@ describe('@wiser/schema/zod', () => {
     });
   });
 
-  describe('jobPostingSchema', () => {
-    it('is the base schema with no extensions', () => {
-      const row = jobPostingSchema().parse({ ...minimal, posting_id: 'P1' });
-      assertType<Equals<typeof row, z.output<typeof BaseJobPostingSchema>>>();
-      expect(row).to.deep.equal(minimal);
+  // The README examples: the base extended with the shapes of the extensions a
+  // tenant uses. Zod infers the output, which has the fields of JobPosting<K>.
+  describe('BaseJobPostingSchema extended with extension shapes', () => {
+    const UnlistedSchema = BaseJobPostingSchema.extend(extensionSchemas.unlisted.shape);
+    const VacancySchema = BaseJobPostingSchema.extend({
+      ...extensionSchemas.unlisted.shape,
+      ...extensionSchemas.postingId.shape,
+    });
+    // An extension whose field is required and nullable.
+    const FilteredSchema = BaseJobPostingSchema.extend(extensionSchemas.businessFilterUrl.shape);
+
+    assertType<Equals<Fields<z.output<typeof UnlistedSchema>>, Fields<JobPosting<'unlisted'>>>>();
+    assertType<Equals<Fields<z.output<typeof VacancySchema>>, Fields<JobPosting<'unlisted' | 'postingId'>>>>();
+    assertType<Equals<Fields<z.output<typeof FilteredSchema>>, Fields<JobPosting<'businessFilterUrl'>>>>();
+
+    it('keeps the fields of one extension and strips the others', () => {
+      const parsed = UnlistedSchema.parse({ ...minimal, unlisted: true, posting_id: 'P1', remote_type: 'Remote' });
+      assertType<Equals<typeof parsed.unlisted, boolean>>();
+      // @ts-expect-error posting_id belongs to postingId, which was not added.
+      expect(parsed.posting_id).to.equal(undefined);
+      expect(parsed).to.deep.equal({ ...minimal, unlisted: true });
     });
 
-    it('keeps the fields of the chosen extensions and strips the others', () => {
-      const schema = jobPostingSchema(['postingId', 'unlisted']);
-      const row = { ...minimal, posting_id: 'P1', unlisted: true, contract_type: 'Permanent' };
-      expect(schema.parse(row)).to.deep.equal({ ...minimal, posting_id: 'P1', unlisted: true });
+    it('keeps the fields of several extensions and strips the others', () => {
+      const row = { ...minimal, unlisted: true, posting_id: 'P1' };
+      const parsed = VacancySchema.parse({ ...row, contract_type: 'Permanent' });
+      assertType<Equals<typeof parsed.unlisted, boolean>>();
+      assertType<Equals<typeof parsed.posting_id, string | undefined>>();
+      // @ts-expect-error contract_type belongs to contractType, which was not added.
+      expect(parsed.contract_type).to.equal(undefined);
+      expect(parsed).to.deep.equal(row);
     });
 
-    it('rejects a row missing a required field of a chosen extension', () => {
-      const result = jobPostingSchema(['unlisted']).safeParse(minimal);
+    it('rejects a row missing a required field of an added extension', () => {
+      for (const schema of [UnlistedSchema, VacancySchema]) {
+        const result = schema.safeParse(minimal);
+        expect(result.success).to.equal(false);
+        expect(result.error?.issues[0].path).to.deep.equal(['unlisted']);
+      }
+    });
+
+    it('rejects an extension field of the wrong type', () => {
+      const result = VacancySchema.safeParse({ ...minimal, unlisted: 'yes', posting_id: 'P1' });
       expect(result.success).to.equal(false);
       expect(result.error?.issues[0].path).to.deep.equal(['unlisted']);
     });
 
-    it('rejects an extension field of the wrong type', () => {
-      const result = jobPostingSchema(['locationKeys']).safeParse({ ...minimal, location_keys: 'London' });
-      expect(result.success).to.equal(false);
-      expect(result.error?.issues[0].path).to.deep.equal(['location_keys']);
+    it('leaves an optional extension field out when absent, and does not accept null for it', () => {
+      const row = { ...minimal, unlisted: false };
+      expect(VacancySchema.parse(row)).to.deep.equal(row);
+      expect(VacancySchema.safeParse({ ...row, posting_id: null }).success).to.equal(false);
     });
 
-    it('accepts a row with the fields of every extension and strips nothing', () => {
-      const row = {
-        ...minimal,
+    it('accepts null for a required nullable field, but not its omission', () => {
+      const row = { ...minimal, business_filter_url: null };
+      const parsed = FilteredSchema.parse(row);
+      assertType<Equals<typeof parsed.business_filter_url, string | null>>();
+      expect(parsed).to.deep.equal(row);
+      const result = FilteredSchema.safeParse(minimal);
+      expect(result.success).to.equal(false);
+      expect(result.error?.issues[0].path).to.deep.equal(['business_filter_url']);
+    });
+
+    it('still validates the base fields', () => {
+      const { date_posted: _omitted, ...row } = { ...minimal, unlisted: true };
+      const result = VacancySchema.safeParse(row);
+      expect(result.success).to.equal(false);
+      expect(result.error?.issues[0].path).to.deep.equal(['date_posted']);
+    });
+
+    // A package that exports a schema built this way, and a parser annotated
+    // with JobPosting<K>, must emit a declaration its consumers can read: the
+    // parser's return type by name, and the schema's output with the same fields.
+    it('emits a declaration that gives a consumer the same types', () => {
+      const producer = compile(
+        {
+          'declaration-producer.ts': `
+            import type { JobPosting } from '../models';
+            import { BaseJobPostingSchema, extensionSchemas } from '.';
+            export const VacancySchema = BaseJobPostingSchema.extend({
+              ...extensionSchemas.unlisted.shape,
+              ...extensionSchemas.postingId.shape,
+            });
+            export const parseVacancy = (row: unknown): JobPosting<'unlisted' | 'postingId'> => VacancySchema.parse(row);
+          `,
+        },
+        'declaration-producer.ts',
+      );
+      expect(producer.errors).to.deep.equal([]);
+      expect(producer.declaration).to.include('parseVacancy: (row: unknown) => JobPosting<"unlisted" | "postingId">');
+      expect(producer.declaration).to.not.match(/\bany\b/);
+
+      const consumer = compile(
+        {
+          'declaration-producer.d.ts': producer.declaration,
+          'declaration-consumer.ts': `
+            import type { JobPosting } from '../models';
+            import { VacancySchema, parseVacancy } from './declaration-producer';
+            export const exact: JobPosting<'unlisted' | 'postingId'> = VacancySchema.parse({});
+            export const base: JobPosting = parseVacancy({});
+            for (const vacancy of [VacancySchema.parse({}), parseVacancy({})]) {
+              const required: boolean = vacancy.unlisted;
+              const optional: string | undefined = vacancy.posting_id;
+              // @ts-expect-error posting_id may be absent.
+              const notPromised: string = vacancy.posting_id;
+              // @ts-expect-error unlisted is a boolean, so the type is not \`any\`.
+              const notAny: string = vacancy.unlisted;
+              // @ts-expect-error contract_type belongs to contractType, which was not added.
+              const notAdded = vacancy.contract_type;
+            }
+          `,
+        },
+        'declaration-consumer.ts',
+      );
+      expect(consumer.errors).to.deep.equal([]);
+    }).timeout(60000);
+  });
+
+  describe('extensionSchemas', () => {
+    it('has every key in EXTENSION_KEYS', () => {
+      expect(EXTENSION_KEYS).to.deep.equal(Object.keys(extensionSchemas));
+    });
+
+    // `.extend` and object spread replace a field of the same name without an
+    // error, so a repeated name would silently change what a schema validates.
+    // Nothing checks this at runtime. This test is the only guard.
+    it('repeats no field name of the base or of another extension', () => {
+      const owners = new Map<string, string>();
+      const repeated: string[] = [];
+      const claim = (owner: string, shape: object) => {
+        for (const field of Object.keys(shape)) {
+          const first = owners.get(field);
+          if (first === undefined) {
+            owners.set(field, owner);
+          } else {
+            repeated.push(`${field} is in both ${first} and ${owner}`);
+          }
+        }
+      };
+      claim('BaseJobPostingSchema', BaseJobPostingSchema.shape);
+      for (const key of EXTENSION_KEYS) {
+        claim(key, extensionSchemas[key].shape);
+      }
+      expect(repeated).to.deep.equal([]);
+    });
+
+    it('accepts a row with the fields of every extension, each field kept by one extension', () => {
+      const fields = {
         employment_subunit: 'Frontend',
         contract_type: 'Fixed Term',
         contract_end: '2025-03-31',
@@ -196,59 +377,11 @@ describe('@wiser/schema/zod', () => {
         business_filter_url: null,
         linkedin_job_description_url: 'https://example.com/jobs/1?utm_source=linkedIn',
       };
-      expect(jobPostingSchema(EXTENSION_KEYS).parse(row)).to.deep.equal(row);
-    });
-
-    it('types extension fields as optional and base fields as the model', () => {
-      const literal = jobPostingSchema(['unlisted']).parse({ ...minimal, unlisted: true });
-      assertType<Equals<typeof literal.unlisted, boolean | undefined>>();
-      assertType<Equals<typeof literal.job_req_id, string>>();
-      // @ts-expect-error contract_type belongs to contractType, which was not chosen.
-      expect(literal.contract_type).to.equal(undefined);
-
-      const keys: ExtensionKey[] = JSON.parse('["unlisted"]');
-      const dynamic = jobPostingSchema(keys);
-      assertType<Equals<z.output<typeof dynamic>, JobPostingWithExtensions<ExtensionKey>>>();
-      expect(dynamic.safeParse(minimal).success).to.equal(false);
-
-      const anyKey = jobPostingSchema([JSON.parse('"unlisted"')]).parse({ ...minimal, unlisted: true });
-      assertType<Equals<typeof anyKey.job_req_id, string>>();
-      assertType<Equals<typeof anyKey.company_name, string | undefined>>();
-    });
-
-    it('accepts the same extension twice', () => {
-      expect(() => jobPostingSchema(['postingId', 'postingId'])).not.to.throw();
-    });
-
-    it('throws on a key that is not an extension', () => {
-      // @ts-expect-error "nope" is not an extension key.
-      expect(() => jobPostingSchema(['nope'])).to.throw('Unknown JobPosting extension "nope"');
-    });
-
-    it('builds with every extension without a field collision', () => {
-      expect(EXTENSION_KEYS).to.deep.equal(Object.keys(extensionSchemas));
-      expect(() => jobPostingSchema(EXTENSION_KEYS)).not.to.throw();
-    });
-
-    describe('with an extension that collides', () => {
-      const schemas = extensionSchemas as Record<string, z.ZodObject>;
-      afterEach(() => {
-        delete schemas.clash;
-      });
-
-      it('throws when it redefines a base field', () => {
-        schemas.clash = z.object({ job_title: z.number() });
-        expect(() => jobPostingSchema(['clash' as ExtensionKey])).to.throw(
-          'JobPosting extension "clash" redefines the field "job_title"',
-        );
-      });
-
-      it("throws when it redefines another extension's field", () => {
-        schemas.clash = z.object({ posting_id: z.number() });
-        expect(() => jobPostingSchema(['postingId', 'clash' as ExtensionKey])).to.throw(
-          'JobPosting extension "clash" redefines the field "posting_id"',
-        );
-      });
+      let kept = {};
+      for (const key of EXTENSION_KEYS) {
+        kept = { ...kept, ...extensionSchemas[key].parse({ ...minimal, ...fields }) };
+      }
+      expect(kept).to.deep.equal(fields);
     });
   });
 });

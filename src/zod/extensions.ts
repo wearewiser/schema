@@ -9,6 +9,9 @@ import { PlaceSchema } from "./entities";
  * schema per extension. Unknown keys are stripped.
  *
  * A field goes here only when schema.org `JobPosting` has no property for it.
+ *
+ * No extension repeats a field name of the base or of another extension, so the
+ * shapes of any extensions can be added to `BaseJobPostingSchema` together.
  */
 export const extensionSchemas = {
   /**
@@ -253,6 +256,13 @@ export type ExtensionKey = keyof typeof extensionSchemas;
  * The fields each extension adds, by key.
  */
 export type Extensions = { [K in ExtensionKey]: z.output<(typeof extensionSchemas)[K]> };
+
+/**
+ * Turns a union of types into the intersection of those types. Applied to
+ * `Extensions[K]`, it merges the fields of the extensions K into one type.
+ */
+export type UnionToIntersection<U> =
+  (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 /**
  * Every key in {@link extensionSchemas}.

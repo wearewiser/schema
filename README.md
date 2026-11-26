@@ -55,40 +55,60 @@ Changes from the earlier interfaces:
 
 The types above describe values you already trust. For rows from outside, such as an ATS feed or an API request, validate once at ingestion with `@wiser/schema/zod`, which uses [Zod](https://zod.dev) 4, a dependency of this package. This is opt-in: `@wiser/schema` does not load Zod at runtime, so install the package as a production dependency if you validate.
 
+**Base fields only.** `BaseJobPostingSchema` validates a `JobPosting`:
+
 ```typescript
-import { jobPostingSchema } from '@wiser/schema/zod';
+import { BaseJobPostingSchema } from '@wiser/schema/zod';
 
-const schema = jobPostingSchema(['unlisted', 'postingId']);
-
-const vacancy = schema.parse(row); // throws if the row is invalid, for example if it has no `unlisted`
-const result = schema.safeParse(row); // or check result.success instead of catching
+const vacancy = BaseJobPostingSchema.parse(row); // a JobPosting; throws if the row is invalid
+const result = BaseJobPostingSchema.safeParse(row); // or check result.success instead of catching
 ```
 
-The schema validates each chosen extension as it is declared. A row that lacks a required field, such as `unlisted`, is rejected. `null` is accepted only for a nullable field. Fields outside the base and the chosen extensions are stripped from the result.
-
-**The result's type is not `JobPosting<K>`.** The two types differ in the extension fields only:
-
-| | Base fields | Fields of the extensions `K` |
-| --- | --- | --- |
-| `JobPosting<K>`, type-only | as `JobPosting` has them | as each extension declares them: required, optional or nullable |
-| `jobPostingSchema(keys)` result | as `JobPosting` has them | each optional |
+**One extension.** Each entry of `extensionSchemas` is a Zod object schema with the fields of one extension. Add its shape to the base with Zod's own `.extend`:
 
 ```typescript
+import { BaseJobPostingSchema, extensionSchemas } from '@wiser/schema/zod';
+
+const UnlistedSchema = BaseJobPostingSchema.extend(extensionSchemas.unlisted.shape);
+```
+
+**Several extensions.** Spread their shapes into one object:
+
+```typescript
+import { BaseJobPostingSchema, extensionSchemas } from '@wiser/schema/zod';
+
+const VacancySchema = BaseJobPostingSchema.extend({
+  ...extensionSchemas.unlisted.shape,
+  ...extensionSchemas.postingId.shape,
+});
+
+const vacancy = VacancySchema.parse(row); // throws if the row is invalid, for example if it has no `unlisted`
 vacancy.job_req_id; // string
-vacancy.unlisted; // boolean | undefined, though the schema above rejects a row without it
+vacancy.unlisted; // boolean
 vacancy.posting_id; // string | undefined
-vacancy.contract_type; // compile error: 'contractType' was not chosen
+vacancy.contract_type; // compile error: the shape of 'contractType' was not added
 ```
 
-The result's type is `JobPostingSchemaOutput<K>`, which is `JobPosting & Partial<JobPosting<K>>`. It is the same for every list of keys: an array literal in the call, an `as const` tuple, or a list built at runtime. The type of a list does not prove which keys the list holds when the schema is built, so the result's type promises none of the extension fields. Only the type is cautious. Validation is as strict as described above.
+The schema validates the base fields and each added extension as it is declared:
 
-The result is a `JobPosting`, so code that needs only the base fields takes it as it is. Code that reads an extension field checks it as it would any optional field. When the list holds the key of a required field, that check always passes, as the schema has already rejected a row without the field.
+- A row that lacks a required field, such as `unlisted`, is rejected. So is a row with a field of the wrong type.
+- An optional field, such as `posting_id`, may be absent.
+- `null` is accepted only for a nullable field. A required nullable field, such as `business_filter_url`, accepts `null` but must be present.
+- Fields outside the base and the added extensions are stripped from the result.
 
-`K` is every key the list may hold. For a list typed `ExtensionKey[]`, the result has the fields of every extension, each optional, and likewise for a list or a key typed `any`. No list, `[]` and `undefined` give the base `JobPosting`.
+Zod infers the result's type from the schema, so the type is exact. It has the same fields as `JobPosting<K>` for the extensions added: `vacancy` above is a `JobPosting<'unlisted' | 'postingId'>`, and a function that returns it can say so:
 
-- `jobPostingSchema(keys)` validates a `JobPosting` plus the fields of the chosen extensions, listed in `extensionSchemas`. It throws on an unknown key or on an extension that redefines a field.
-- `JobPostingSchemaOutput<K>` is the type of the result for the keys `K`. The declaration of a generic function that wraps `jobPostingSchema` names it. For example, `<K extends ExtensionKey>(keys: readonly K[], row: unknown) => jobPostingSchema(keys).parse(row)` returns `JobPostingSchemaOutput<K>`. A function that returns the schema instead returns a `z.ZodType` of it.
-- `BaseJobPostingSchema`, `extensionSchemas`, `EXTENSION_KEYS` and the model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema`, `MonetaryAmountSchema`) are also exported.
+```typescript
+import type { JobPosting } from '@wiser/schema';
+
+const parseVacancy = (row: unknown): JobPosting<'unlisted' | 'postingId'> => VacancySchema.parse(row);
+```
+
+The extensions a schema validates are the shapes written into it. The package has no function that builds a schema from a list of keys.
+
+- `BaseJobPostingSchema` validates a `JobPosting`. `extensionSchemas` holds one schema per extension, by key. `EXTENSION_KEYS` lists the keys and `ExtensionKey` is their union.
+- No extension repeats a field name of the base or of another extension, so the shapes can be added together in any order.
+- The model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema`, `MonetaryAmountSchema`) are also exported.
 - Type checking this entry needs TypeScript 5.5 or later, `lib` with ES2015 and a `URL` global (`dom` or `@types/node`), and default imports of CommonJS modules (`esModuleInterop`, `allowSyntheticDefaultImports`, or `module` `node16`/`nodenext`), or `skipLibCheck`.
 - From a native ES module, import `@wiser/schema/lib/zod/index.js`.
 
@@ -96,10 +116,11 @@ The result is a `JobPosting`, so code that needs only the base fields takes it a
 
 1. **Base or extension.** A field goes in `extensionSchemas` only when schema.org `JobPosting` has no property for it, as the comment on `extensionSchemas` says. A field schema.org has belongs in `BaseJobPostingSchema` in `src/zod/index.ts`, which changes the root `JobPosting` for everyone. The nested models' schemas, such as `PlaceSchema`, are in `src/zod/entities.ts` and change the root models in the same way.
 2. **Existing group or new key.** Add the field to an existing group in `src/zod/extensions.ts` when it belongs with that group's fields, such as another locale in `localeUrls`. Make it optional there: a required field would reject rows from tenants that already use the key, and would be required in their `JobPosting<K>`. Add a new key when the field stands on its own or a tenant may want it without the group.
-3. **Conventions.** Keys are camelCase; fields are snake_case like the base fields. Give the key a one-line doc and each field a doc with an `@example`. Use `.optional()` when the ATS may omit the field, required when the extension means nothing without it, and `.nullable()` when the ATS sends `null` for "none". A field name must not repeat a base field or another extension's field: `jobPostingSchema` throws when both are chosen.
-4. **Derived, do not edit.** `ExtensionKey`, `EXTENSION_KEYS`, the fields `JobPosting<K>` adds and the keys `jobPostingSchema` accepts all follow `extensionSchemas`.
-5. **Tests** in `src/zod/index.spec.ts`: the field is kept when its key is chosen and stripped when it is not, a wrong type is rejected, and so is a missing required field. Add the field to the row in "accepts a row with the fields of every extension"; "builds with every extension without a field collision" catches name clashes.
-6. **Verify** with `npm ci`, then `npm test`, `npm run lint`, `npm run build` and `npm run docs`.
+3. **Conventions.** Keys are camelCase; fields are snake_case like the base fields. Give the key a one-line doc and each field a doc with an `@example`. Use `.optional()` when the ATS may omit the field, required when the extension means nothing without it, and `.nullable()` when the ATS sends `null` for "none".
+4. **Unique field names.** A field name must not repeat a base field or another extension's field. Nothing fails at runtime when one does: consumers combine the shapes with `.extend` and object spread, which replace a field of the same name without an error, so their schema would validate one definition and silently drop the other. The test "repeats no field name of the base or of another extension" in `src/zod/index.spec.ts` is the only guard. Do not remove or weaken it.
+5. **Derived, do not edit.** `ExtensionKey`, `EXTENSION_KEYS` and the fields `JobPosting<K>` adds all follow `extensionSchemas`.
+6. **Tests** in `src/zod/index.spec.ts`: add the field to the row in "accepts a row with the fields of every extension". For a new kind of field, also check with a schema that adds the extension's shape that the field is kept, that a wrong type is rejected, and that a missing required field is rejected.
+7. **Verify** with `npm ci`, then `npm test`, `npm run lint`, `npm run build` and `npm run docs`.
 
 For example, a new key for a field schema.org lacks:
 

@@ -9,6 +9,9 @@ import { PlaceSchema } from "./entities";
  * schema per extension. Unknown keys are stripped.
  *
  * A field goes here only when schema.org `JobPosting` has no property for it.
+ *
+ * No extension repeats a field name of the base or of another extension, so the
+ * shapes of any extensions can be added to `BaseJobPostingSchema` together.
  */
 export const extensionSchemas = {
   /**

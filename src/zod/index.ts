@@ -1,8 +1,8 @@
 import { z } from "zod";
+// Type-only import so the {@link JobPosting} below resolves for TypeDoc and editors.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { JobPosting } from "../models";
 import { ContactPointSchema, MonetaryAmountSchema, OrganizationSchema, PlaceSchema } from "./entities";
-import { extensionSchemas } from "./extensions";
-import type { ExtensionKey } from "./extensions";
 
 // Opt-in runtime validation. The root entry, `@wiser/schema`, does not load this
 // module at runtime. Its JobPosting type is inferred from BaseJobPostingSchema,
@@ -15,6 +15,19 @@ export type { ExtensionKey } from "./extensions";
 /**
  * Validates a {@link JobPosting} with no extensions. Unknown keys are stripped.
  * It is the source of `JobPosting`, which is its output type.
+ *
+ * To validate the fields of extensions too, extend it with their shapes. The
+ * output has the same fields as `JobPosting<K>` for the extensions added.
+ * @example
+ * ```ts
+ * const VacancySchema = BaseJobPostingSchema.extend({
+ *   ...extensionSchemas.unlisted.shape,
+ *   ...extensionSchemas.postingId.shape,
+ * });
+ * const vacancy = VacancySchema.parse(row); // throws if the row has no `unlisted`
+ * vacancy.unlisted; // boolean
+ * vacancy.posting_id; // string | undefined
+ * ```
  */
 export const BaseJobPostingSchema = z.object({
   /**
@@ -206,64 +219,3 @@ export const BaseJobPostingSchema = z.object({
    */
   valid_through: z.string().optional(),
 });
-
-/**
- * The output of {@link jobPostingSchema} for the extension keys K: every base
- * field as {@link JobPosting} has it, plus the fields of the extensions K, each
- * optional.
- *
- * The fields are optional for every list, because the type of a list does not
- * prove which keys the list holds when the schema is built. Only the type is
- * cautious. The schema requires the required fields of the keys the list holds.
- * `JobPosting<K>` is the exact type, for a value known to have those fields.
- *
- * The declaration of a generic function that wraps `jobPostingSchema` names
- * this type: as its return type when the function returns a parsed row, and
- * inside `z.ZodType` when it returns the schema.
- */
-export type JobPostingSchemaOutput<K extends ExtensionKey> = JobPosting & Partial<JobPosting<K>>;
-
-/**
- * Builds the schema for a {@link JobPosting} with no extensions, given no
- * list or an empty list.
- */
-export function jobPostingSchema(extensions?: readonly []): z.ZodType<JobPosting>;
-/**
- * Builds the schema for a {@link JobPosting} with the chosen extensions.
- * Fields outside the base and the chosen extensions are stripped.
- *
- * The schema validates each chosen extension as it is declared: a row that
- * lacks a required field is rejected. The output type is more cautious and
- * makes every extension field optional. See {@link JobPostingSchemaOutput}.
- *
- * @typeParam T - The type of the list. The output has the fields of every key
- * a list of that type may hold.
- * @param extensions - The keys of the extensions the tenant uses.
- * @throws Error if a key is not in {@link extensionSchemas}, or if a chosen
- * extension redefines a base field or another chosen extension's field.
- * @example
- * ```ts
- * const schema = jobPostingSchema(["unlisted", "postingId"]);
- * const vacancy = schema.parse(row); // throws if the row has no `unlisted`
- * vacancy.unlisted; // boolean | undefined
- * ```
- */
-export function jobPostingSchema<T extends readonly ExtensionKey[] | undefined>(
-  extensions: T,
-): z.ZodType<JobPostingSchemaOutput<NonNullable<T>[number]>>;
-export function jobPostingSchema(extensions: readonly ExtensionKey[] = []): z.ZodType {
-  const shape: Record<string, z.ZodType> = { ...BaseJobPostingSchema.shape };
-  for (const key of new Set(extensions)) {
-    if (!Object.prototype.hasOwnProperty.call(extensionSchemas, key)) {
-      throw new Error(`Unknown JobPosting extension "${key}".`);
-    }
-    const fields: Record<string, z.ZodType> = extensionSchemas[key].shape;
-    for (const field of Object.keys(fields)) {
-      if (Object.prototype.hasOwnProperty.call(shape, field)) {
-        throw new Error(`JobPosting extension "${key}" redefines the field "${field}".`);
-      }
-      shape[field] = fields[field];
-    }
-  }
-  return z.object(shape);
-}

@@ -1,10 +1,8 @@
 import { z } from "zod";
-// Type-only import so the {@link JobPosting} below resolves for TypeDoc and editors.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { JobPosting } from "../models";
 import { ContactPointSchema, MonetaryAmountSchema, OrganizationSchema, PlaceSchema } from "./entities";
 import { extensionSchemas } from "./extensions";
-import type { ExtensionKey, Extensions } from "./extensions";
+import type { ExtensionKey, Extensions, UnionToIntersection } from "./extensions";
 
 // Opt-in runtime validation. The root entry, `@wiser/schema`, does not load this
 // module at runtime. Its JobPosting type is inferred from BaseJobPostingSchema,
@@ -210,32 +208,75 @@ export const BaseJobPostingSchema = z.object({
 });
 
 /**
- * Turns a union of object types into the intersection of those types.
- */
-type UnionToIntersection<U> =
-  (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
-
-/**
- * The output of {@link BaseJobPostingSchema}, the same type as {@link JobPosting}.
- * An optional field may hold `undefined`, as Zod keeps a key given as undefined.
+ * The output of {@link BaseJobPostingSchema}, the same type as {@link JobPosting}
+ * with no extensions. An optional field may hold `undefined`, as Zod keeps a
+ * key given as undefined.
  */
 export type BaseJobPostingOutput = z.output<typeof BaseJobPostingSchema>;
 
 /**
- * The output of {@link jobPostingSchema} for the extensions K: the base output
- * plus the fields of the extensions K, each optional.
+ * The base output plus the fields of the extensions K, each optional even when
+ * its extension requires it. A key typed `any` counts as every key.
  *
- * The fields are optional even when an extension requires them, because the
- * type cannot tell which keys a list built at runtime holds. The schema still
- * requires them. A key typed `any` counts as every key.
+ * @deprecated Use {@link JobPosting} with the same keys, `JobPosting<K>`, which
+ * keeps a required field required. For the type this alias gives, write
+ * `JobPosting & Partial<JobPosting<K>>`.
  */
 export type JobPostingWithExtensions<K extends ExtensionKey> = [K] extends [never]
   ? BaseJobPostingOutput
   : BaseJobPostingOutput & Partial<UnionToIntersection<Extensions[unknown extends K ? ExtensionKey : K]>>;
 
 /**
+ * The keys a list of type T may hold.
+ */
+type ListedKeys<T extends readonly ExtensionKey[] | undefined> = NonNullable<T>[number];
+
+/**
+ * True when the tuple type T has a fixed length and one key in each slot.
+ * False for an optional or a rest slot, a slot that is a union of keys, a
+ * union of tuples, and a list that may be undefined.
+ */
+type HasOneKeyPerSlot<T> = [T] extends [readonly []]
+  ? true
+  : [T] extends [readonly [infer First, ...infer Rest]]
+    ? [First] extends [UnionToIntersection<First>] ? HasOneKeyPerSlot<Rest> : false
+    : false;
+
+/**
+ * True when the type T of a list names the keys the list holds: T is a readonly
+ * tuple with one key in each slot, as an inline array literal is. False for a
+ * list or a key typed `any`, and for a mutable tuple, which `pop` can shorten.
+ */
+type NamesItsKeys<T extends readonly ExtensionKey[] | undefined> = unknown extends ListedKeys<T>
+  ? false
+  : [Extract<T, unknown[]>] extends [never] ? HasOneKeyPerSlot<T> : false;
+
+/**
+ * The output of {@link jobPostingSchema} for a list of type T.
+ *
+ * When T names the keys the list holds, the output is {@link JobPosting} with
+ * those keys. Otherwise the list may hold fewer keys than T allows, so the
+ * fields of those keys are optional even when an extension requires them. The
+ * schema still requires them for the keys the list does hold.
+ */
+type JobPostingSchemaOutput<T extends readonly ExtensionKey[] | undefined> = [ListedKeys<T>] extends [never]
+  ? JobPosting
+  : NamesItsKeys<T> extends true
+    ? JobPosting<ListedKeys<T>>
+    : JobPosting & Partial<JobPosting<ListedKeys<T>>>;
+
+/**
+ * Builds the schema for a {@link JobPosting} with no extensions.
+ */
+export function jobPostingSchema(): z.ZodType<JobPosting>;
+/**
  * Builds the schema for a {@link JobPosting} with the chosen extensions.
  * Fields outside the base and the chosen extensions are stripped.
+ *
+ * The output type follows the list. A fixed list, such as an inline array
+ * literal or an `as const` tuple, gives `JobPosting` with those keys. A list
+ * built at runtime gives the base `JobPosting` with the fields of the keys it
+ * may hold, each optional.
  *
  * @param extensions - The keys of the extensions the tenant uses.
  * @throws Error if a key is not in {@link extensionSchemas}, or if a chosen
@@ -243,8 +284,15 @@ export type JobPostingWithExtensions<K extends ExtensionKey> = [K] extends [neve
  * @example
  * ```ts
  * const schema = jobPostingSchema(["employmentSubunit", "postingId"]);
- * const vacancy = schema.parse(row);
+ * const vacancy = schema.parse(row); // JobPosting<"employmentSubunit" | "postingId">
  * ```
+ */
+export function jobPostingSchema<const T extends readonly ExtensionKey[] | undefined>(
+  extensions: T,
+): z.ZodType<JobPostingSchemaOutput<T>>;
+/**
+ * @deprecated Leave out the type argument, so that the output type follows the
+ * list. With a type argument, the fields of the extensions K are all optional.
  */
 export function jobPostingSchema<K extends ExtensionKey = never>(
   extensions?: readonly K[],

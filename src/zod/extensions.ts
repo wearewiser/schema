@@ -255,6 +255,13 @@ export type ExtensionKey = keyof typeof extensionSchemas;
 export type Extensions = { [K in ExtensionKey]: z.output<(typeof extensionSchemas)[K]> };
 
 /**
+ * Turns a union of types into the intersection of those types. Applied to
+ * `Extensions[K]`, it merges the fields of the extensions K into one type.
+ */
+export type UnionToIntersection<U> =
+  (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+
+/**
  * Every key in {@link extensionSchemas}.
  */
 export const EXTENSION_KEYS = Object.keys(extensionSchemas) as readonly ExtensionKey[];

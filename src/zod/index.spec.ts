@@ -319,6 +319,12 @@ describe('@wiser/schema/zod', () => {
         assertType<Equals<z.output<typeof fromWide>['job_req_id'], string>>();
         // The list does not hold "unlisted", so the row without it is valid.
         expect(fromWide.parse(minimal)).to.deep.equal(minimal);
+        // A list that does hold "unlisted" still requires it, though the type makes it optional.
+        const holdsUnlisted: ExtensionKey[] = JSON.parse('["unlisted"]');
+        const fromHoldsUnlisted = jobPostingSchema(holdsUnlisted);
+        assertType<Equals<z.output<typeof fromHoldsUnlisted>['unlisted'], boolean | undefined>>();
+        expect(fromHoldsUnlisted.safeParse(minimal).success).to.equal(false);
+        expect(fromHoldsUnlisted.parse({ ...minimal, unlisted: true })).to.deep.equal({ ...minimal, unlisted: true });
 
         const narrow: Chosen[] = JSON.parse(held);
         const fromNarrow = jobPostingSchema(narrow);

@@ -356,6 +356,30 @@ describe('@wiser/schema/zod', () => {
         expect(anyKey.parse({ ...minimal, business_filter_url: null }).not_a_field).to.equal(undefined);
       });
 
+      it('counts a branded key as its key', () => {
+        const key = z.literal('unlisted').brand<'TenantKey'>().parse('unlisted');
+        type Branded = typeof key;
+        assertType<Equals<JobPosting<Branded | 'businessFilterUrl'>, JobPosting<'unlisted' | 'businessFilterUrl'>>>();
+        assertType<Equals<ChosenFields<JobPosting<Branded | 'businessFilterUrl'>>, { unlisted: boolean; business_filter_url: string | null }>>();
+
+        const fixed = jobPostingSchema([key, 'businessFilterUrl']);
+        assertType<Equals<z.output<typeof fixed>, JobPosting<'unlisted' | 'businessFilterUrl'>>>();
+        expect(fixed.safeParse({ ...minimal, business_filter_url: null }).success).to.equal(false);
+        expect(fixed.parse(row)).to.deep.equal({ ...minimal, unlisted: true, business_filter_url: null });
+
+        // A list of branded keys may be empty, so it promises no field.
+        const list: Branded[] = [];
+        const fromList = jobPostingSchema(list);
+        assertType<Equals<ChosenFields<z.output<typeof fromList>>, { unlisted?: boolean | undefined }>>();
+        expect(fromList.parse(minimal)).to.deep.equal(minimal);
+
+        // A slot branded over two keys holds only one of them.
+        const either = z.enum(['unlisted', 'postingId']).brand<'TenantKey'>().parse('postingId');
+        const fromEither = jobPostingSchema([either, 'businessFilterUrl']);
+        assertType<Equals<ChosenFields<z.output<typeof fromEither>>, AllOptional>>();
+        expect(fromEither.parse({ ...minimal, business_filter_url: null })).to.not.have.property('unlisted');
+      });
+
       it('does not compile for a tuple with an optional slot', () => {
         const optional: readonly ['postingId', second?: 'unlisted'] = ['postingId'];
         // @ts-expect-error the optional slot may hold undefined, which is not a key.

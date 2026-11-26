@@ -79,7 +79,7 @@ const vacancy = jobPostingSchema(keys).parse(row);
 vacancy.unlisted; // boolean | undefined: the list may not hold 'unlisted'
 ```
 
-A list counts as built at runtime when its type is an array such as `ExtensionKey[]`, a tuple with a rest element, a union of tuples, a tuple with a slot that is a union of keys, a list that may be `undefined`, or a mutable tuple, which `pop` can shorten. A list or a key typed `any` counts as holding every key. A tuple with an optional slot does not compile. To get the exact type, fix the list with `as const`.
+A list counts as built at runtime when its type is an array such as `ExtensionKey[]`, a tuple with a rest element, a union of tuples, a tuple with a slot that is a union of keys, a list that may be `undefined`, or a mutable tuple, which `pop` can shorten. A list or a key typed `any` counts as holding every key. A branded key, such as the output of `z.literal('unlisted').brand()`, counts as its key, in `JobPosting<K>` too. A tuple with an optional slot does not compile. To get the exact type, fix the list with `as const`.
 
 - `jobPostingSchema(keys)` validates a `JobPosting` plus the fields of the chosen extensions, listed in `extensionSchemas`. It throws on an unknown key or on an extension that redefines a field. It validates the same fields whichever type the list gives.
 - `BaseJobPostingSchema`, `extensionSchemas`, `EXTENSION_KEYS` and the model schemas (`PlaceSchema`, `PostalAddressSchema`, `OrganizationSchema`, `ContactPointSchema`, `MonetaryAmountSchema`) are also exported.

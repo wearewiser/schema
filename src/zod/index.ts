@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { JobPosting } from "../models";
 import { ContactPointSchema, MonetaryAmountSchema, OrganizationSchema, PlaceSchema } from "./entities";
 import { extensionSchemas } from "./extensions";
-import type { ExtensionKey, Extensions, UnionToIntersection } from "./extensions";
+import type { ExtensionKey, Extensions, PlainKeys, UnionToIntersection } from "./extensions";
 
 // Opt-in runtime validation. The root entry, `@wiser/schema`, does not load this
 // module at runtime. Its JobPosting type is inferred from BaseJobPostingSchema,
@@ -233,23 +233,24 @@ type ListedKeys<T extends readonly ExtensionKey[] | undefined> = NonNullable<T>[
 
 /**
  * True when the tuple type T has a fixed length and one key in each slot.
- * False for an optional or a rest slot, a slot that is a union of keys, a
- * union of tuples, and a list that may be undefined.
+ * False for an optional or a rest slot, a union of tuples, a list that may be
+ * undefined, and a slot that may hold more than one key: a union of keys or a
+ * key typed `any`.
  */
 type HasOneKeyPerSlot<T> = [T] extends [readonly []]
   ? true
   : [T] extends [readonly [infer First, ...infer Rest]]
-    ? [First] extends [UnionToIntersection<First>] ? HasOneKeyPerSlot<Rest> : false
+    ? [PlainKeys<First>] extends [UnionToIntersection<PlainKeys<First>>] ? HasOneKeyPerSlot<Rest> : false
     : false;
 
 /**
  * True when the type T of a list names the keys the list holds: T is a readonly
  * tuple with one key in each slot, as an inline array literal is. False for a
- * list or a key typed `any`, and for a mutable tuple, which `pop` can shorten.
+ * list typed `any`, and for a mutable tuple, which `pop` can shorten.
  */
-type NamesItsKeys<T extends readonly ExtensionKey[] | undefined> = unknown extends ListedKeys<T>
-  ? false
-  : [Extract<T, unknown[]>] extends [never] ? HasOneKeyPerSlot<T> : false;
+type NamesItsKeys<T extends readonly ExtensionKey[] | undefined> = [Extract<T, unknown[]>] extends [never]
+  ? HasOneKeyPerSlot<T>
+  : false;
 
 /**
  * The output of {@link jobPostingSchema} for a list of type T.

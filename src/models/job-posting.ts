@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { BaseJobPostingSchema } from "../zod";
-import type { ExtensionKey, Extensions, UnionToIntersection } from "../zod/extensions";
+import type { ExtensionKey, Extensions, PlainKeys, UnionToIntersection } from "../zod/extensions";
 
 /**
  * Represents a job vacancy or opportunity offered by an organization.
@@ -15,7 +15,7 @@ import type { ExtensionKey, Extensions, UnionToIntersection } from "../zod/exten
  * entry does not load Zod at runtime, but its declarations need Zod's types.
  *
  * @typeParam K - The keys of the extensions the tenant uses. None by default.
- * A key typed `any` counts as every key.
+ * A key typed `any` counts as every key, and a branded key as its key.
  * @example
  * ```ts
  * type Vacancy = JobPosting<"postingId" | "unlisted">;
@@ -25,4 +25,4 @@ import type { ExtensionKey, Extensions, UnionToIntersection } from "../zod/exten
  * @interface
  */
 export type JobPosting<K extends ExtensionKey = never> = z.output<typeof BaseJobPostingSchema> &
-  UnionToIntersection<Extensions[unknown extends K ? ExtensionKey : K]>;
+  UnionToIntersection<Extensions[PlainKeys<K>]>;

@@ -5,6 +5,7 @@
 /src/
 /tslint.json
 /tsconfig.json
+/tsconfig.build.json
 /.npmrc
 /.travis.yml
 /*.tgz

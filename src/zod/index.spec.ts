@@ -487,6 +487,12 @@ describe('@wiser/schema/zod', () => {
         const fixed: z.ZodType<JobPostingWithExtensions<'unlisted'>> = jobPostingSchema(['unlisted']);
         expect(dynamic.safeParse(minimal).success).to.equal(false);
         expect(fixed.safeParse(minimal).success).to.equal(false);
+
+        // A generic wrapper that names the alias and leaves the call to inference.
+        function wrap<K extends ExtensionKey>(list: readonly K[]): z.ZodType<JobPostingWithExtensions<K>> {
+          return jobPostingSchema(list);
+        }
+        expect(wrap(['unlisted']).safeParse(minimal).success).to.equal(false);
       });
     });
 

@@ -216,7 +216,9 @@ export type BaseJobPostingOutput = z.output<typeof BaseJobPostingSchema>;
 
 /**
  * The base output plus the fields of the extensions K, each optional even when
- * its extension requires it. A key typed `any` counts as every key.
+ * its extension requires it. It reads the keys as {@link JobPosting} does, so
+ * that the output of {@link jobPostingSchema} for a list of keys K fits it
+ * while K is still a type parameter.
  *
  * @deprecated Use {@link JobPosting} with the same keys, `JobPosting<K>`, which
  * keeps a required field required. For the type this alias gives, write
@@ -224,7 +226,7 @@ export type BaseJobPostingOutput = z.output<typeof BaseJobPostingSchema>;
  */
 export type JobPostingWithExtensions<K extends ExtensionKey> = [K] extends [never]
   ? BaseJobPostingOutput
-  : BaseJobPostingOutput & Partial<UnionToIntersection<Extensions[unknown extends K ? ExtensionKey : K]>>;
+  : BaseJobPostingOutput & Partial<UnionToIntersection<Extensions[PlainKeys<K>]>>;
 
 /**
  * The keys a list of type T may hold.

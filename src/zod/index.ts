@@ -259,8 +259,13 @@ type NamesItsKeys<T extends readonly ExtensionKey[] | undefined> = [Extract<T, u
  * those keys. Otherwise the list may hold fewer keys than T allows, so the
  * fields of those keys are optional even when an extension requires them. The
  * schema still requires them for the keys the list does hold.
+ *
+ * It is exported so that the declaration of a generic function that returns
+ * the output can name it. The checks above are not exported, and a declaration
+ * that had to spell them out would repeat {@link HasOneKeyPerSlot} once for
+ * each slot it tries.
  */
-type JobPostingSchemaOutput<T extends readonly ExtensionKey[] | undefined> = [ListedKeys<T>] extends [never]
+export type JobPostingSchemaOutput<T extends readonly ExtensionKey[] | undefined> = [ListedKeys<T>] extends [never]
   ? JobPosting
   : NamesItsKeys<T> extends true
     ? JobPosting<ListedKeys<T>>

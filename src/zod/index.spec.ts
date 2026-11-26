@@ -1,5 +1,7 @@
 import { expect } from 'chai';
 import { execFileSync } from 'child_process';
+import * as path from 'path';
+import * as ts from 'typescript';
 import { z } from 'zod';
 import { ContactPoint, JobPosting, MonetaryAmount, Organization, Place, PostalAddress } from '../models';
 import {
@@ -69,6 +71,42 @@ assertType<Equals<ChosenFields<JobPostingWithExtensions<Chosen>>, AllOptional>>(
 assertType<MutuallyAssignable<JobPostingWithExtensions<Chosen>, JobPosting & Partial<JobPosting<Chosen>>>>();
 // A JobPosting with the same keys is one, so code that names the alias still accepts it.
 assertType<JobPosting<Chosen> extends JobPostingWithExtensions<Chosen> ? true : false>();
+
+// Type checks sources as if they were files in this directory, without writing
+// them. Returns the errors and the declaration emitted for the entry source.
+function compile(sources: Record<string, string>, entry: string): { errors: string[]; declaration: string } {
+  const options: ts.CompilerOptions = {
+    strict: true,
+    target: ts.ScriptTarget.ES2017,
+    module: ts.ModuleKind.CommonJS,
+    moduleResolution: ts.ModuleResolutionKind.Node10,
+    esModuleInterop: true,
+    skipLibCheck: true,
+    types: [],
+    declaration: true,
+    emitDeclarationOnly: true,
+  };
+  const here = (name: string) => path.join(__dirname, name).replace(/\\/g, '/');
+  const virtual = new Map(Object.keys(sources).map((name) => [here(name), sources[name]]));
+  const host = ts.createCompilerHost(options);
+  const onDisk = { fileExists: host.fileExists, readFile: host.readFile, getSourceFile: host.getSourceFile };
+  host.fileExists = (file) => virtual.has(file) || onDisk.fileExists(file);
+  host.readFile = (file) => virtual.get(file) ?? onDisk.readFile(file);
+  host.getSourceFile = (file, languageVersion, ...rest) => {
+    const text = virtual.get(file);
+    return text === undefined ? onDisk.getSourceFile(file, languageVersion, ...rest) : ts.createSourceFile(file, text, languageVersion);
+  };
+  let declaration = '';
+  host.writeFile = (_file, text) => {
+    declaration = text;
+  };
+  const program = ts.createProgram([here(entry)], options, host);
+  const emitted = program.emit(program.getSourceFile(here(entry)));
+  const errors = [...ts.getPreEmitDiagnostics(program), ...emitted.diagnostics].map((diagnostic) =>
+    ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+  );
+  return { errors, declaration };
+}
 
 const minimal: JobPosting = {
   job_req_id: '',
@@ -379,6 +417,51 @@ describe('@wiser/schema/zod', () => {
         assertType<Equals<ChosenFields<z.output<typeof fromEither>>, AllOptional>>();
         expect(fromEither.parse({ ...minimal, business_filter_url: null })).to.not.have.property('unlisted');
       });
+
+      // A generic function that returns the output does not know the list type,
+      // so its declaration carries the output type unresolved. The declaration
+      // must name JobPostingSchemaOutput. Spelled out instead, the type repeats
+      // its per-slot check until the compiler gives up and writes `any`, and a
+      // consumer of that declaration takes tens of seconds to type check.
+      it('is named in the declaration of a generic function that returns it', () => {
+        const producer = compile(
+          {
+            'declaration-producer.ts': `
+              import { jobPostingSchema, type ExtensionKey } from '.';
+              export const read = <const T extends readonly ExtensionKey[]>(keys: T) => jobPostingSchema(keys).parse({});
+              export const readWith = <K extends ExtensionKey>(key: K) => jobPostingSchema([key, 'postingId']).parse({});
+              export const build = <K extends ExtensionKey>(keys: readonly K[]) => jobPostingSchema(keys);
+            `,
+          },
+          'declaration-producer.ts',
+        );
+        expect(producer.errors).to.deep.equal([]);
+        expect(producer.declaration).to.include('JobPostingSchemaOutput<T>');
+        expect(producer.declaration).to.include('JobPostingSchemaOutput<readonly [K, "postingId"]>');
+        expect(producer.declaration).to.include('JobPostingSchemaOutput<readonly K[]>');
+        expect(producer.declaration).to.not.match(/\binfer\b|\bany\b/);
+
+        // The inference still works for a consumer that sees only the declaration.
+        const consumer = compile(
+          {
+            'declaration-producer.d.ts': producer.declaration,
+            'declaration-consumer.ts': `
+              import { read, readWith, build } from './declaration-producer';
+              export const required: boolean = read(['unlisted']).unlisted;
+              // @ts-expect-error unlisted is a boolean, so the output is not \`any\`.
+              export const notAny: string = read(['unlisted']).unlisted;
+              // @ts-expect-error posting_id belongs to postingId, which was not chosen.
+              export const notChosen = read(['unlisted']).posting_id;
+              export const nullable: string | null = readWith('businessFilterUrl').business_filter_url;
+              export const optional: boolean | undefined = build(['unlisted'] as 'unlisted'[]).parse({}).unlisted;
+              // @ts-expect-error a list built at runtime does not promise unlisted.
+              export const notPromised: boolean = build(['unlisted'] as 'unlisted'[]).parse({}).unlisted;
+            `,
+          },
+          'declaration-consumer.ts',
+        );
+        expect(consumer.errors).to.deep.equal([]);
+      }).timeout(60000);
 
       it('does not compile for a tuple with an optional slot', () => {
         const optional: readonly ['postingId', second?: 'unlisted'] = ['postingId'];
